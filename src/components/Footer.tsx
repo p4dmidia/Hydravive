@@ -12,6 +12,15 @@ export default function Footer() {
           <p className="text-sm text-slate-500">Água pura, lucro puro. Junte-se ao movimento global por tecnologia de hidratação sustentável.</p>
         </div>
         <div>
+          <h4 className="font-bold mb-4">Acesso</h4>
+          <ul className="flex flex-col gap-2 text-sm text-slate-500">
+            <li><Link to="/login" className="hover:text-primary transition-colors">Entrar na Conta</Link></li>
+            <li><Link to="/register" className="hover:text-primary transition-colors">Criar Nova Conta</Link></li>
+            <li><Link to="/my-orders" className="hover:text-primary transition-colors">Meus Pedidos</Link></li>
+            <li><Link to="/affiliate" className="hover:text-primary transition-colors">Seja um Afiliado</Link></li>
+          </ul>
+        </div>
+        <div>
           <h4 className="font-bold mb-4">Programa</h4>
           <ul className="flex flex-col gap-2 text-sm text-slate-500">
             <li><Link to="#" className="hover:text-primary transition-colors">Guia de Comissões</Link></li>

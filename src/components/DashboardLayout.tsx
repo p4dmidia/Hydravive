@@ -12,9 +12,13 @@ import {
   TrendingUp,
   Search,
   Menu,
-  X
+  X,
+  Award,
+  ShoppingCart
 } from 'lucide-react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
+import UserMenu from './UserMenu';
 
 interface DashboardLayoutProps {
   children: React.ReactNode;
@@ -23,6 +27,7 @@ interface DashboardLayoutProps {
 export default function DashboardLayout({ children }: DashboardLayoutProps) {
   const navigate = useNavigate();
   const location = useLocation();
+  const { user, profile, signOut } = useAuth();
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
 
   const menuItems = [
@@ -31,6 +36,23 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
     { icon: ImageIcon, label: 'Marketing', path: '/dashboard/marketing' },
     { icon: Wallet, label: 'Financeiro', path: '/dashboard/financial' },
   ];
+
+  const handleLogout = async () => {
+    try {
+      // Tenta deslogar no Supabase, mas com um limite de tempo
+      await Promise.race([
+        signOut(),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 1500))
+      ]);
+    } catch (err) {
+      console.warn('Logout forçado devido a lentidão');
+    } finally {
+      // Limpa dados locais e força recarga da página no login
+      localStorage.clear();
+      sessionStorage.clear();
+      window.location.href = '/login';
+    }
+  };
 
   return (
     <div className="flex h-screen overflow-hidden bg-[#F8FAFC]">
@@ -84,7 +106,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
                 <span className="text-sm">Perfil</span>
               </Link>
               <button 
-                onClick={() => navigate('/login')}
+                onClick={handleLogout}
                 className="flex items-center gap-3 px-4 py-3 rounded-xl text-red-500 hover:bg-red-50 transition-all font-semibold group w-full text-left"
               >
                 <LogOut className="size-5" />
@@ -94,15 +116,22 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
           </div>
 
           <div className="mt-auto pt-6 border-t border-slate-100">
-            <div className="bg-slate-900 rounded-3xl p-5 text-white relative overflow-hidden group">
-              <div className="relative z-10">
-                <p className="text-[10px] font-black uppercase tracking-widest text-primary mb-2">Plano Atual</p>
-                <p className="text-lg font-bold mb-3">Embaixador Elite</p>
-                <button className="w-full bg-primary text-white py-2.5 rounded-xl text-xs font-bold hover:brightness-110 transition-all">
+            <div className="p-4 bg-slate-900 rounded-2xl border border-white/5 relative overflow-hidden group">
+              <div className="relative z-10 space-y-3">
+                <p className="text-[10px] font-black uppercase tracking-widest text-white/40">Plano Atual</p>
+                <h4 className="text-sm font-black text-white uppercase tracking-tight">
+                  {profile?.role === 'admin' ? 'Administrador' : (profile?.role === 'affiliate' ? 'Afiliado Pro' : 'Afiliado Starter')}
+                </h4>
+                <button 
+                  onClick={() => window.location.href = '/dashboard?tab=ranking'}
+                  className="w-full py-2 bg-primary text-white rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg shadow-primary/20 hover:brightness-110 transition-all active:scale-95"
+                >
                   Ver Ranking
                 </button>
               </div>
-              <TrendingUp className="absolute -bottom-4 -right-4 text-white/5 size-24 group-hover:scale-110 transition-transform" />
+              <div className="absolute top-0 right-0 p-4 opacity-10 group-hover:scale-110 transition-transform duration-700">
+                <Award className="size-12 text-white" />
+              </div>
             </div>
           </div>
         </div>
@@ -130,16 +159,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
               <input className="flex-1 border-none bg-transparent focus:ring-0 px-3 text-sm font-medium placeholder:text-slate-400" placeholder="Buscar..." />
             </div>
             
-            <div 
-              onClick={() => navigate('/dashboard/profile')}
-              className="flex items-center gap-3 lg:gap-4 bg-slate-50 border border-slate-200 rounded-2xl px-3 lg:px-4 py-2 hover:bg-slate-100 transition-colors cursor-pointer"
-            >
-              <div className="size-8 rounded-full bg-primary/10 flex items-center justify-center text-primary font-black text-sm">B</div>
-              <div className="hidden sm:flex flex-col">
-                <span className="text-[10px] lg:text-xs font-black text-slate-900">Bruno Silva</span>
-                <span className="text-[10px] text-emerald-500 font-bold uppercase tracking-widest">Online</span>
-              </div>
-            </div>
+            <UserMenu />
 
             <div className="flex items-center gap-1 lg:gap-2">
               <button className="flex items-center justify-center rounded-xl size-9 lg:size-10 bg-white border border-slate-200 text-slate-400 hover:text-primary hover:border-primary/30 transition-all">

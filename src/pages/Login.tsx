@@ -1,12 +1,45 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { supabase } from '../lib/supabase';
+import toast from 'react-hot-toast';
 
 export default function LoginPage() {
   const navigate = useNavigate();
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [loading, setLoading] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    navigate('/dashboard');
+    setLoading(true);
+    const loadingToast = toast.loading('Autenticando...');
+
+    // Fail-safe: se demorar mais de 8s, libera o botão
+    const timeoutId = setTimeout(() => {
+      setLoading(false);
+      toast.error('O servidor está demorando a responder. Tente novamente.', { id: loadingToast });
+    }, 8000);
+
+    try {
+      console.log('Login: Iniciando tentativa para', email);
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+
+      if (error) throw error;
+      
+      console.log('Login: Sucesso!', data.user?.id);
+      toast.success('Login realizado com sucesso!', { id: loadingToast });
+      clearTimeout(timeoutId);
+      navigate('/dashboard');
+    } catch (err: any) {
+      clearTimeout(timeoutId);
+      console.error('Login Error:', err);
+      toast.error(err.message || 'Erro ao realizar login', { id: loadingToast });
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -24,7 +57,9 @@ export default function LoginPage() {
               required
               className="bg-slate-50 border-transparent focus:border-primary focus:ring-primary rounded-xl p-4 transition-all" 
               placeholder="nome@exemplo.com" 
-              type="email" 
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
             />
           </div>
           <div className="flex flex-col gap-2">
@@ -33,7 +68,9 @@ export default function LoginPage() {
               required
               className="bg-slate-50 border-transparent focus:border-primary focus:ring-primary rounded-xl p-4 transition-all" 
               placeholder="••••••••" 
-              type="password" 
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
             />
           </div>
           
@@ -45,14 +82,18 @@ export default function LoginPage() {
             <Link to="#" className="text-primary font-bold hover:underline">Esqueceu a senha?</Link>
           </div>
 
-          <button className="bg-primary text-white py-4 rounded-xl font-bold mt-4 hover:shadow-xl hover:brightness-110 active:scale-95 transition-all shadow-lg shadow-primary/20" type="submit">
-            Entrar no Painel
+          <button 
+            className="bg-primary text-white py-4 rounded-xl font-bold mt-4 hover:shadow-xl hover:brightness-110 active:scale-95 transition-all shadow-lg shadow-primary/20 disabled:opacity-50 disabled:cursor-not-allowed" 
+            type="submit"
+            disabled={loading}
+          >
+            {loading ? 'Entrando...' : 'Entrar no Painel'}
           </button>
         </form>
 
         <div className="mt-8 text-center text-sm">
           <p className="text-slate-500">
-            Ainda não é um embaixador?{' '}
+            Ainda não é um afiliado?{' '}
             <Link to="/affiliate" className="text-primary font-bold hover:underline">Saiba mais aqui</Link>
           </p>
         </div>

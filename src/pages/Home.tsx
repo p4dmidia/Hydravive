@@ -1,10 +1,33 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowRight, Droplets, Shield, Zap, CheckCircle2, Leaf, Heart, Plus, Minus, HelpCircle } from 'lucide-react';
-import { useState } from 'react';
+import { supabase } from '../lib/supabase';
 
 export default function Home() {
   const [openFaq, setOpenFaq] = useState<number | null>(null);
+  const [products, setProducts] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchFeaturedProducts = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('products')
+          .select('*')
+          .eq('is_active', true)
+          .limit(3);
+        
+        if (error) throw error;
+        setProducts(data || []);
+      } catch (error) {
+        console.error('Error fetching products:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchFeaturedProducts();
+  }, []);
 
   const faqItems = [
     {
@@ -43,25 +66,25 @@ export default function Home() {
           />
         </div>
         
-        <div className="max-w-[1200px] mx-auto px-6 relative z-10 w-full">
-          <div className="max-w-2xl flex flex-col gap-8">
+        <div className="max-w-[1200px] mx-auto px-6 relative z-10 w-full py-20 lg:py-0">
+          <div className="max-w-2xl flex flex-col gap-6 md:gap-8">
             <div className="flex flex-col gap-4">
-              <span className="text-primary font-black tracking-widest uppercase text-sm">Hidratação de Próxima Geração</span>
-              <h1 className="text-5xl md:text-7xl font-black leading-tight tracking-tight text-slate-900">
+              <span className="text-primary font-black tracking-widest uppercase text-[10px] md:text-sm">Hidratação de Próxima Geração</span>
+              <h1 className="text-4xl md:text-7xl font-black leading-tight tracking-tight text-slate-900">
                 Água Pura. <br />
                 <span className="text-primary">Redefinida.</span>
               </h1>
-              <p className="text-lg text-slate-500 leading-relaxed font-medium">
+              <p className="text-base md:text-lg text-slate-500 leading-relaxed font-medium max-w-lg">
                 Experimente o sistema de purificação de água mais avançado do mundo. 
                 99,9% de pureza, desperdício zero e um design que complementa seu estilo de vida.
               </p>
             </div>
-            <div className="flex flex-wrap gap-4">
-              <Link to="/shop" className="bg-primary text-white px-8 py-4 rounded-xl text-base font-black uppercase tracking-widest hover:shadow-lg hover:shadow-primary/20 transition-all flex items-center gap-2 shadow-xl shadow-primary/20">
+            <div className="flex flex-col sm:flex-row gap-4">
+              <Link to="/shop" className="bg-primary text-white px-8 py-4 rounded-xl text-sm md:text-base font-black uppercase tracking-widest hover:shadow-lg hover:shadow-primary/20 transition-all flex items-center justify-center gap-2 shadow-xl shadow-primary/20 active:scale-95">
                 Ver Loja <ArrowRight className="size-5" />
               </Link>
-              <Link to="/affiliate" className="bg-slate-900 text-white px-8 py-4 rounded-xl text-base font-black uppercase tracking-widest hover:bg-slate-800 transition-all">
-                Seja um Embaixador
+              <Link to="/affiliate" className="bg-slate-900 text-white px-8 py-4 rounded-xl text-sm md:text-base font-black uppercase tracking-widest hover:bg-slate-800 transition-all flex items-center justify-center active:scale-95">
+                Seja um Afiliado
               </Link>
             </div>
           </div>
@@ -69,7 +92,7 @@ export default function Home() {
       </section>
 
       {/* Featured Products */}
-      <section className="max-w-[1200px] mx-auto px-6 py-24 w-full">
+      <section className="max-w-[1200px] mx-auto px-6 py-16 md:py-24 w-full">
         <div className="flex flex-col md:flex-row justify-between items-end gap-6 mb-12">
           <div className="flex flex-col gap-2">
             <h2 className="text-3xl font-black tracking-tight">Nossos Mais Vendidos</h2>
@@ -81,57 +104,49 @@ export default function Home() {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-          {[
-            {
-              id: 1,
-              name: 'Hydravive X1',
-              desc: 'Sistema de Bancada Premium',
-              price: 'R$ 2.499',
-              image: 'https://lh3.googleusercontent.com/aida-public/AB6AXuAMOayWLQFjHevLaBDG9dqt340yE4fhE4GwjAIS3vBJi25YFx210XprUPKkn35spWeV9WtHrKOw7MP0zE4exAuZYcMcnbmYadtn1Mhi5_pCQEhM47oEe83WMWT0Je-9_L93BNgx5CsX3jklbOB7qk5LZW1CN7feMmeCw5UYRGhCLW42_kpyKSFFHcVzy-iM8phC_-W5nuQWrqnRqumO0m1SCdlhc5egcC7nuI0ilh68e4ymp1n-OI_sLk970-cDcPtueqVwkjAQqjc'
-            },
-            {
-              id: 2,
-              name: 'Hydravive Pro',
-              desc: 'Filtragem para Casa Toda',
-              price: 'R$ 6.499',
-              image: 'https://lh3.googleusercontent.com/aida-public/AB6AXuA6GRTDwUikHQUUVNR6aFASo6GS4a9ywcWBfaxKPHbCzNDLu5NPsaHxw2VTG3rEU5tRxeuHCREcdXt8F_rYhoH6-ZOSN32hQZPndJVTBtgOEgW_J724m4YuuOvInsIxnk-yokTb8qmu028-vp4FXfvC2RtbR_8xg6VyMAC7QaG4nHOAmGMLAe23V_Q2LDHPe5vka-_sl-9een9ogVcYHBB9yLda9mane5qWLo9WXI40iFWPKy46qYif27yKvQqGxjWpmyba7ks7FYM'
-            },
-            {
-              id: 3,
-              name: 'Traveler Mini',
-              desc: 'Purificação Portátil',
-              price: 'R$ 749',
-              image: 'https://lh3.googleusercontent.com/aida-public/AB6AXuD677n5aKEIh05cCimu4_AlhKfpDsQoDJFUIdawsboVmO9qZRlk2pBLrepmUP1V17BG4wctbQr_VTzW2MuVyaPEjH78iUBc95NpFgBUPIbtxiEZuUbQwsmLRlUH9lRDk-Rs6AgNm6VrmKppm2zXwRuhfFqfYdq-OKNmykeWxrnSoxYJH0A0tDFihDgiI0p5nsTWb2rpv-aqhGUfcHe1F3ZpuHH2kWnh2ffvzor5vQyxtYGf-30HpDKvphX9VPaR_5gilrZmI4Q4sk0'
-            }
-          ].map((product) => (
-            <div key={product.id} className="group flex flex-col gap-4 bg-white rounded-2xl p-4 border border-slate-100 shadow-sm hover:shadow-xl transition-all">
+          {loading ? (
+            Array(3).fill(0).map((_, i) => (
+              <div key={i} className="animate-pulse flex flex-col gap-4 bg-white rounded-2xl p-4 border border-slate-100">
+                <div className="aspect-square rounded-xl bg-slate-100"></div>
+                <div className="h-4 bg-slate-100 rounded w-2/3"></div>
+                <div className="h-4 bg-slate-100 rounded w-1/3"></div>
+              </div>
+            ))
+          ) : products.map((product) => (
+            <Link 
+              key={product.id} 
+              to={`/product/${product.id}`}
+              className="group flex flex-col gap-4 bg-white rounded-2xl p-4 border border-slate-100 shadow-sm hover:shadow-xl transition-all"
+            >
               <div className="aspect-square rounded-xl bg-slate-50 overflow-hidden relative">
                 <img 
-                  src={product.image} 
+                  src={product.main_image_url || 'https://via.placeholder.com/400'} 
                   alt={product.name} 
                   className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
                   referrerPolicy="no-referrer"
                 />
-                <button className="absolute bottom-4 right-4 bg-white text-[#111618] p-3 rounded-full shadow-lg opacity-0 group-hover:opacity-100 translate-y-4 group-hover:translate-y-0 transition-all">
+                <div className="absolute bottom-4 right-4 bg-white text-[#111618] p-3 rounded-full shadow-lg opacity-0 group-hover:opacity-100 translate-y-4 group-hover:translate-y-0 transition-all">
                   <ArrowRight className="size-5" />
-                </button>
+                </div>
               </div>
               <div className="flex flex-col gap-1 px-2">
                 <div className="flex justify-between items-start">
                   <div>
-                    <h3 className="font-bold text-lg">{product.name}</h3>
-                    <p className="text-sm text-slate-500">{product.desc}</p>
+                    <h3 className="font-bold text-lg line-clamp-1">{product.name}</h3>
+                    <p className="text-sm text-slate-500 line-clamp-1">{product.description}</p>
                   </div>
-                  <span className="font-black text-primary">{product.price}</span>
+                  <span className="font-black text-primary whitespace-nowrap">
+                    R$ {Number(product.price).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                  </span>
                 </div>
               </div>
-            </div>
+            </Link>
           ))}
         </div>
       </section>
 
       {/* Commitment Section */}
-      <section className="py-24 bg-white relative overflow-hidden">
+      <section className="py-16 md:py-24 bg-white relative overflow-hidden">
         <div className="absolute top-0 right-0 w-1/3 h-full bg-primary/5 -skew-x-12 translate-x-1/2"></div>
         <div className="max-w-[1200px] mx-auto px-6 relative z-10">
           <div className="text-center max-w-3xl mx-auto mb-16">
@@ -168,7 +183,7 @@ export default function Home() {
       </section>
 
       {/* FAQ Section */}
-      <section className="py-24 bg-slate-900 text-white">
+      <section className="py-16 md:py-24 bg-slate-900 text-white">
         <div className="max-w-[800px] mx-auto px-6">
           <div className="text-center mb-16">
             <h2 className="text-4xl font-black mb-4 flex items-center justify-center gap-3">
@@ -217,7 +232,7 @@ export default function Home() {
       </section>
 
       {/* Benefits */}
-      <section className="bg-slate-50 py-24">
+      <section className="bg-slate-50 py-16 md:py-24">
         <div className="max-w-[1200px] mx-auto px-6 grid grid-cols-1 md:grid-cols-3 gap-12">
           <div className="flex flex-col gap-4 items-center text-center">
             <div className="size-16 rounded-2xl bg-primary/10 text-primary flex items-center justify-center">

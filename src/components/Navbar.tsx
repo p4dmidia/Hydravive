@@ -1,11 +1,11 @@
 import React, { useState } from 'react';
 import { Link, useLocation, useSearchParams } from 'react-router-dom';
-import { ShoppingCart, User, Menu, X, ArrowRight } from 'lucide-react';
+import { ShoppingCart, Menu, X, ArrowRight } from 'lucide-react';
 import { useCart } from '../context/CartContext';
+import UserMenu from './UserMenu';
 
 export default function Navbar() {
   const location = useLocation();
-  const [searchParams] = useSearchParams();
   const { totalItems } = useCart();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const isDashboard = location.pathname.startsWith('/dashboard');
@@ -15,13 +15,12 @@ export default function Navbar() {
   const navLinks = [
     { label: 'Loja', path: '/shop' },
     { label: 'Purificadores', path: '/shop?category=Purificadores' },
-    { label: 'Acessórios', path: '/shop?category=Acessórios' },
     { label: 'Rastreie seu pedido', path: 'https://rastreamento.correios.com.br/app/index.php', external: true },
-    { label: 'Embaixadores', path: '/affiliate' },
+    { label: 'Afiliados', path: '/affiliate' },
   ];
 
   return (
-    <header className="sticky top-0 z-[60] w-full border-b border-slate-200 bg-white/80 backdrop-blur-md">
+    <header className="sticky top-0 z-[80] w-full border-b border-slate-200 bg-white/80 backdrop-blur-md">
       <div className="max-w-[1200px] mx-auto px-6 h-20 md:h-28 flex items-center justify-between">
         <Link to="/" className="flex items-center">
           <img src="/logo.png" alt="Hydravive" className="h-12 md:h-20 w-auto" />
@@ -36,20 +35,24 @@ export default function Navbar() {
                 href={link.path} 
                 target="_blank" 
                 rel="noopener noreferrer" 
-                className="hover:text-primary transition-colors"
+                className="hover:text-primary transition-colors uppercase text-[11px] font-black tracking-widest"
               >
                 {link.label}
               </a>
             ) : (
-              <Link key={link.label} to={link.path} className="hover:text-primary transition-colors">
+              <Link 
+                key={link.label} 
+                to={link.path} 
+                className="hover:text-primary transition-colors uppercase text-[11px] font-black tracking-widest"
+              >
                 {link.label}
               </Link>
             )
           ))}
         </nav>
 
-        <div className="flex items-center gap-2">
-          <Link to="/cart" className="flex items-center justify-center rounded-lg h-10 w-10 bg-slate-100 text-[#111618] hover:bg-slate-200 transition-colors relative">
+        <div className="flex items-center gap-3">
+          <Link to="/cart" className="flex items-center justify-center rounded-2xl h-10 w-10 md:h-12 md:w-12 bg-slate-50 text-[#111618] hover:bg-slate-100 transition-colors relative border border-slate-100 shadow-sm">
             <ShoppingCart className="size-5" />
             {totalItems > 0 && (
               <span className="absolute -top-1 -right-1 size-5 bg-primary text-white text-[10px] font-black rounded-full flex items-center justify-center shadow-lg shadow-primary/20">
@@ -57,12 +60,12 @@ export default function Navbar() {
               </span>
             )}
           </Link>
-          <Link to="/login" className="flex items-center justify-center rounded-lg h-10 w-10 bg-slate-100 text-[#111618] hover:bg-slate-200 transition-colors">
-            <User className="size-5" />
-          </Link>
+          
+          <UserMenu />
+
           <button 
             onClick={() => setIsMenuOpen(!isMenuOpen)}
-            className="md:hidden flex items-center justify-center rounded-lg h-10 w-10 bg-slate-100 text-[#111618] hover:bg-slate-200 transition-all active:scale-95"
+            className="md:hidden flex items-center justify-center rounded-2xl h-10 w-10 bg-slate-900 text-white hover:bg-primary transition-all active:scale-95 shadow-lg shadow-slate-900/10"
           >
             {isMenuOpen ? <X className="size-5" /> : <Menu className="size-5" />}
           </button>
@@ -70,7 +73,7 @@ export default function Navbar() {
       </div>
 
       {/* Mobile Menu Overlay */}
-      <div className={`fixed inset-0 top-20 z-[70] bg-white transition-all duration-500 md:hidden overflow-y-auto ${isMenuOpen ? 'opacity-100 translate-x-0' : 'opacity-0 translate-x-full pointer-events-none'}`}>
+      <div className={`fixed inset-0 top-20 z-[70] bg-white/95 backdrop-blur-lg transition-all duration-500 md:hidden overflow-y-auto ${isMenuOpen ? 'translate-x-0 opacity-100' : 'translate-x-full opacity-0 pointer-events-none'}`}>
         <div className="p-10 flex flex-col gap-10">
           <nav className="flex flex-col gap-6">
             <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Navegação</p>
@@ -104,26 +107,19 @@ export default function Navbar() {
           {/* Mobile Profile Actions */}
           <div className="bg-slate-50 rounded-[2rem] p-8 space-y-6">
             <h4 className="text-sm font-black text-slate-900 uppercase">Minha Conta</h4>
-            <div className="grid grid-cols-2 gap-4">
-              <Link 
-                to="/login" 
-                onClick={() => setIsMenuOpen(false)}
-                className="flex flex-col items-center justify-center gap-3 p-6 bg-white border border-slate-200 rounded-2xl text-center group active:scale-95 transition-all shadow-sm"
-              >
-                <div className="size-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary">
-                  <User className="size-5" />
-                </div>
-                <span className="text-xs font-black uppercase tracking-widest text-slate-600">Entrar</span>
-              </Link>
+            <div className="grid grid-cols-1 gap-4">
               <Link 
                 to="/cart" 
                 onClick={() => setIsMenuOpen(false)}
-                className="flex flex-col items-center justify-center gap-3 p-6 bg-white border border-slate-200 rounded-2xl text-center group active:scale-95 transition-all shadow-sm"
+                className="flex items-center gap-4 p-6 bg-white border border-slate-200 rounded-2xl group active:scale-95 transition-all shadow-sm"
               >
-                <div className="size-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary">
+                <div className="size-12 rounded-xl bg-primary/10 flex items-center justify-center text-primary group-hover:bg-primary group-hover:text-white transition-all">
                   <ShoppingCart className="size-5" />
                 </div>
-                <span className="text-xs font-black uppercase tracking-widest text-slate-600">Carrinho</span>
+                <div>
+                  <span className="block text-[10px] font-black uppercase tracking-widest text-slate-400">Finalizar</span>
+                  <span className="block text-sm font-black uppercase tracking-tight text-slate-900">Meu Carrinho</span>
+                </div>
               </Link>
             </div>
           </div>

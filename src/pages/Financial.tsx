@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Wallet, 
   ArrowUpRight, 
@@ -6,50 +6,178 @@ import {
   Clock, 
   CheckCircle2, 
   XCircle, 
-  CreditCard, 
   TrendingUp,
-  Filter,
   Download,
-  Plus
+  Plus,
+  AlertCircle,
+  Calendar,
+  Loader2
 } from 'lucide-react';
 import DashboardLayout from '../components/DashboardLayout';
+import { supabase } from '../lib/supabase';
+import { useAuth } from '../context/AuthContext';
+import toast from 'react-hot-toast';
 
 interface Transaction {
   id: string;
   type: 'commission' | 'withdrawal';
-  amount: string;
+  amount: number;
   status: 'approved' | 'pending' | 'rejected';
-  date: string;
+  created_at: string;
   description: string;
 }
 
-const MOCK_TRANSACTIONS: Transaction[] = [
-  { id: '1', type: 'commission', amount: 'R$ 145,50', status: 'approved', date: 'Hoje, 14:20', description: 'Venda HydraFlow #9421' },
-  { id: '2', type: 'withdrawal', amount: 'R$ 2.500,00', status: 'pending', date: 'Ontem, 09:12', description: 'Saque via PIX' },
-  { id: '3', type: 'commission', amount: 'R$ 82,00', status: 'approved', date: '18 Mar, 2024', description: 'Comissão Nível 2 - Ana C.' },
-  { id: '4', type: 'commission', amount: 'R$ 421,00', status: 'approved', date: '15 Mar, 2024', description: 'Venda Combo 5x #9102' },
-  { id: '5', type: 'withdrawal', amount: 'R$ 1.200,00', status: 'approved', date: '10 Mar, 2024', description: 'Saque via PIX' },
-  { id: '6', type: 'commission', amount: 'R$ 12,00', status: 'rejected', date: '05 Mar, 2024', description: 'Venda Cancelada #8231' },
-];
-
 export default function FinancialPage() {
+  const { profile, loading: authLoading } = useAuth();
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [stats, setStats] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
   const [activeFilter, setActiveFilter] = useState<'todos' | 'ganhos' | 'saques'>('todos');
+  
+  // Withdrawal window logic (05 to 10)
+  const today = new Date();
+  const currentDay = today.getDate();
+  const isWithdrawalWindow = currentDay >= 5 && currentDay <= 10;
+
+  useEffect(() => {
+    if (authLoading) return;
+    if (!profile?.id) {
+      setLoading(false);
+      return;
+    }
+
+    const fetchData = async () => {
+      // Timeout de segurança para não travar no carregamento
+      const timeout = setTimeout(() => setLoading(false), 3000);
+
+      try {
+        setLoading(true);
+        
+        // 1. Fetch Stats
+        const { data: statsData, error: statsError } = await supabase
+          .from('affiliate_stats')
+          .select('*')
+          .eq('user_id', profile.id)
+          .single();
+
+        if (statsError && statsError.code !== 'PGRST116') throw statsError;
+        setStats(statsData);
+
+        // 2. Fetch Transactions (Combined from commissions and withdrawals)
+        const [commissionsRes, withdrawalsRes] = await Promise.allSettled([
+          supabase
+            .from('commissions')
+            .select('id, amount, status, created_at, order_id, level')
+            .eq('affiliate_id', profile.id),
+          supabase
+            .from('withdrawals')
+            .select('id, amount, status, created_at')
+            .eq('user_id', profile.id)
+        ]);
+
+        const commissionsData = commissionsRes.status === 'fulfilled' ? commissionsRes.value.data : [];
+        const withdrawalsData = withdrawalsRes.status === 'fulfilled' ? withdrawalsRes.value.data : [];
+
+        const combinedTxs: Transaction[] = [
+          ...(commissionsData || []).map(c => ({
+            id: `comm-${c.id}`,
+            type: 'commission' as const,
+            amount: Number(c.amount),
+            status: (c.status === 'released' ? 'approved' : c.status === 'pending' ? 'pending' : 'rejected') as 'approved' | 'pending' | 'rejected',
+            created_at: c.created_at,
+            description: c.order_id 
+              ? `Comissão Pedido #${c.order_id} (${c.level === 1 ? 'Direta' : `Nível ${c.level}`})`
+              : `Bônus Extra (${c.level === 1 ? 'Direto' : `Nível ${c.level}`})`
+          })),
+          ...(withdrawalsData || []).map(w => ({
+            id: `with-${w.id}`,
+            type: 'withdrawal' as const,
+            amount: Number(w.amount),
+            status: (w.status === 'paid' ? 'approved' : w.status === 'pending' ? 'pending' : 'rejected') as 'approved' | 'pending' | 'rejected',
+            created_at: w.created_at,
+            description: 'Saque de Saldo para Conta PIX'
+          }))
+        ].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+
+        const filtered = activeFilter === 'todos' ? combinedTxs :
+                         activeFilter === 'ganhos' ? combinedTxs.filter(t => t.type === 'commission') :
+                         combinedTxs.filter(t => t.type === 'withdrawal');
+
+        setTransactions(filtered);
+
+      } catch (err) {
+        console.error('Error fetching financial data:', err);
+      } finally {
+        clearTimeout(timeout);
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+  }, [profile?.id, authLoading, activeFilter]);
+
+  const formatCurrency = (value: number) => {
+    return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value || 0);
+  };
+
+  if (loading || authLoading) {
+    return (
+      <DashboardLayout>
+        <div className="flex items-center justify-center min-h-[60vh]">
+          <Loader2 className="size-12 text-primary animate-spin" />
+        </div>
+      </DashboardLayout>
+    );
+  }
 
   return (
     <DashboardLayout>
       <div className="p-4 md:p-10 max-w-[1400px] mx-auto space-y-8 md:space-y-10">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
-          <div>
-            <h2 className="text-[#111618] text-2xl md:text-4xl font-black tracking-tighter mb-1 uppercase">Gestão Financeira</h2>
-            <p className="text-xs md:text-sm text-slate-500 font-medium font-semibold">Acompanhe seus rendimentos e gerencie seus saques.</p>
+          <div className="space-y-2">
+            <h2 className="text-[#111618] text-2xl md:text-4xl font-black tracking-tighter uppercase">Gestão Financeira</h2>
+            <div className="flex items-center gap-2">
+              <span className={`size-2 rounded-full ${isWithdrawalWindow ? 'bg-emerald-500 animate-pulse' : 'bg-red-500'}`} />
+              <p className="text-xs md:text-sm text-slate-500 font-semibold uppercase tracking-widest">
+                Janela de Saque: {isWithdrawalWindow ? 'Aberta' : 'Fechada'}
+              </p>
+            </div>
           </div>
-          <div className="flex items-center gap-3">
-            <button className="w-full md:w-auto flex items-center justify-center gap-2 px-8 py-4 bg-primary text-white rounded-2xl text-xs font-black uppercase tracking-widest hover:brightness-110 shadow-lg shadow-primary/30 transition-all active:scale-95">
+          
+          <div className="flex flex-col items-end gap-2">
+            <button 
+              disabled={!isWithdrawalWindow}
+              className="w-full md:w-auto flex items-center justify-center gap-2 px-8 py-4 bg-primary text-white rounded-2xl text-xs font-black uppercase tracking-widest hover:brightness-110 shadow-lg shadow-primary/30 transition-all active:scale-95 disabled:opacity-50 disabled:grayscale disabled:cursor-not-allowed"
+            >
               <Plus className="size-5" />
               <span>Solicitar Novo Saque</span>
             </button>
+            {!isWithdrawalWindow && (
+              <p className="text-[10px] text-red-500 font-black uppercase tracking-widest flex items-center gap-1">
+                <AlertCircle className="size-3" />
+                Saques permitidos apenas do dia 05 ao dia 10
+              </p>
+            )}
           </div>
         </div>
+
+        {/* Withdrawal Info Alert */}
+        {!isWithdrawalWindow && (
+          <div className="bg-slate-900 rounded-3xl p-6 md:p-8 text-white flex flex-col md:flex-row items-center gap-6 border border-white/5 relative overflow-hidden shadow-2xl">
+            <div className="size-16 rounded-2xl bg-white/10 flex items-center justify-center shrink-0">
+              <Calendar className="size-8 text-primary" />
+            </div>
+            <div className="flex-1 space-y-1 text-center md:text-left relative z-10">
+              <h3 className="text-lg font-black uppercase tracking-tight">Período de Solicitação de Saque</h3>
+              <p className="text-white/60 text-sm leading-relaxed max-w-2xl">
+                Para garantir a segurança e agilidade nos pagamentos, as solicitações de saque ocorrem mensalmente entre os dias <span className="text-white font-bold">05 e 10</span>. Fora deste período, o botão permanecerá desabilitado.
+              </p>
+            </div>
+            <div className="absolute top-0 right-0 p-8 opacity-5">
+              <Clock className="size-32" />
+            </div>
+          </div>
+        )}
 
         {/* Balance Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-8">
@@ -62,10 +190,12 @@ export default function FinancialPage() {
                 <span className="text-[10px] font-black uppercase tracking-widest text-white/60">Saldo Disponível</span>
               </div>
               <div>
-                <h3 className="text-3xl md:text-4xl font-black tracking-tighter mb-1 font-black">R$ 12.450,00</h3>
+                <h3 className="text-3xl md:text-4xl font-black tracking-tighter mb-1 font-black">
+                  {formatCurrency(stats?.available_balance)}
+                </h3>
                 <p className="text-emerald-400 text-[10px] font-black uppercase tracking-widest flex items-center gap-1">
                   <TrendingUp className="size-3" />
-                  +12% vs mês anterior
+                  Atualizado em tempo real
                 </p>
               </div>
               <button className="w-full py-3 bg-white/10 hover:bg-white/20 rounded-xl md:rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all">
@@ -85,9 +215,11 @@ export default function FinancialPage() {
                 </div>
                 <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Saldo a Liberar</span>
               </div>
-              <h3 className="text-2xl md:text-3xl font-black text-slate-900 tracking-tighter">R$ 5.200,00</h3>
+              <h3 className="text-2xl md:text-3xl font-black text-slate-900 tracking-tighter">
+                {formatCurrency(stats?.frozen_balance)}
+              </h3>
             </div>
-            <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest mt-6">Próxima liberação: 25/03/2024</p>
+            <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest mt-6">Sujeito a prazos de garantia</p>
           </div>
 
           <div className="bg-white border border-slate-200 rounded-[2rem] md:rounded-[2.5rem] p-8 md:p-10 shadow-sm flex flex-col justify-between md:col-span-2 lg:col-span-1">
@@ -98,7 +230,9 @@ export default function FinancialPage() {
                 </div>
                 <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Total Sacado</span>
               </div>
-              <h3 className="text-2xl md:text-3xl font-black text-slate-900 tracking-tighter">R$ 48.912,00</h3>
+              <h3 className="text-2xl md:text-3xl font-black text-slate-900 tracking-tighter">
+                {formatCurrency(stats?.total_withdrawals)}
+              </h3>
             </div>
             <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest mt-6">Histórico Total da Conta</p>
           </div>
@@ -133,7 +267,7 @@ export default function FinancialPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {MOCK_TRANSACTIONS.map((tx) => (
+                {transactions.map((tx) => (
                   <tr key={tx.id} className="group hover:bg-slate-50/50 transition-colors">
                     <td className="px-10 py-6">
                       <div className={`size-10 rounded-xl flex items-center justify-center ${tx.type === 'commission' ? 'bg-emerald-50 text-emerald-500' : 'bg-blue-50 text-blue-500'}`}>
@@ -141,7 +275,9 @@ export default function FinancialPage() {
                       </div>
                     </td>
                     <td className="px-6 py-6 font-bold text-slate-700 text-sm">{tx.description}</td>
-                    <td className="px-6 py-6 text-slate-400 font-medium text-xs">{tx.date}</td>
+                    <td className="px-6 py-6 text-slate-400 font-medium text-xs">
+                      {new Date(tx.created_at).toLocaleDateString('pt-BR')}
+                    </td>
                     <td className="px-6 py-6 font-right">
                       <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest ${
                         tx.status === 'approved' ? 'bg-emerald-50 text-emerald-600' :
@@ -155,7 +291,7 @@ export default function FinancialPage() {
                       </span>
                     </td>
                     <td className={`px-10 py-6 text-right font-black text-sm ${tx.type === 'commission' ? 'text-emerald-500' : 'text-slate-900'}`}>
-                      {tx.type === 'commission' ? `+ ${tx.amount}` : `- ${tx.amount}`}
+                      {tx.type === 'commission' ? `+ ${formatCurrency(tx.amount)}` : `- ${formatCurrency(tx.amount)}`}
                     </td>
                   </tr>
                 ))}
@@ -163,8 +299,14 @@ export default function FinancialPage() {
             </table>
           </div>
 
+          {!loading && transactions.length === 0 && (
+            <div className="flex flex-col items-center justify-center py-20 text-center">
+              <p className="text-slate-500 text-sm font-bold">Nenhuma movimentação encontrada.</p>
+            </div>
+          )}
+
           <div className="p-10 border-t border-slate-100 bg-slate-50/30 flex items-center justify-between">
-            <p className="text-xs text-slate-500 font-medium font-medium">Mostrando as últimas 10 transações</p>
+            <p className="text-xs text-slate-500 font-medium">Sincronizado com o banco de dados</p>
             <button className="flex items-center gap-2 text-primary text-xs font-black uppercase tracking-widest hover:underline">
               <Download className="size-4" />
               Exportar Relatório

@@ -1,14 +1,182 @@
-import React from 'react';
-import { Lock, ShieldCheck, CreditCard, Wallet, Smartphone, Truck, Trash2, Plus, Minus } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { Lock, ShieldCheck, CreditCard, Wallet, Smartphone, Truck, Trash2, Plus, Minus, Loader2, CheckCircle2 } from 'lucide-react';
 import { useCart } from '../context/CartContext';
+import { useAuth } from '../context/AuthContext';
+import { calculateShipping, ShippingOption } from '../services/shipping';
+import { supabase } from '../lib/supabase';
+import toast from 'react-hot-toast';
 
 export default function CheckoutPage() {
-  const { cart, removeFromCart, updateQuantity, totalPrice } = useCart();
+  const navigate = useNavigate();
+  const { cart, removeFromCart, updateQuantity, totalPrice, clearCart } = useCart();
+  const { profile } = useAuth();
   
+  const [formData, setFormData] = useState({
+    fullName: '',
+    email: '',
+    phone: '',
+    address: '',
+    city: '',
+  });
+
+  const [cep, setCep] = useState('');
+  const [shippingOptions, setShippingOptions] = useState<ShippingOption[]>([]);
+  const [selectedShipping, setSelectedShipping] = useState<ShippingOption | null>(null);
+  const [loadingShipping, setLoadingShipping] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Pre-fill form if user is logged in
+  useEffect(() => {
+    if (profile) {
+      setFormData(prev => ({
+        ...prev,
+        fullName: profile.full_name || '',
+        email: profile.email || '',
+        phone: profile.phone || '',
+      }));
+    }
+  }, [profile]);
+
   const subtotal = totalPrice;
-  const delivery = 0;
-  const taxes = subtotal * 0.08; // Example tax calculation
-  const finalTotal = subtotal + delivery + taxes;
+  const shippingCost = selectedShipping ? Number(selectedShipping.custom_price) : 0;
+  const taxes = Math.round(subtotal * 0.08 * 100) / 100;
+  const finalTotal = Math.round((subtotal + shippingCost + taxes) * 100) / 100;
+
+  useEffect(() => {
+    const cleanCep = cep.replace(/\D/g, '');
+    if (cleanCep.length === 8) {
+      handleCalculateShipping(cleanCep);
+    } else {
+      setShippingOptions([]);
+      setSelectedShipping(null);
+    }
+  }, [cep]);
+
+  const handleCalculateShipping = async (targetCep: string) => {
+    setLoadingShipping(true);
+    try {
+      const options = await calculateShipping(targetCep, cart);
+      setShippingOptions(options);
+      if (options.length > 0) {
+        const cheapest = options.reduce((prev, curr) => 
+          Number(prev.custom_price) < Number(curr.custom_price) ? prev : curr
+        );
+        setSelectedShipping(cheapest);
+      }
+    } catch (error) {
+      toast.error('Erro ao calcular frete. Verifique o CEP.');
+    } finally {
+      setLoadingShipping(false);
+    }
+  };
+
+  const handleCheckout = async () => {
+    if (!formData.fullName || !formData.email || !cep || !selectedShipping) {
+      toast.error('Por favor, preencha todos os campos obrigatórios e selecione o frete.');
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      console.log('Checkout: 🛒 Preparando pedido...', {
+        total_amount: finalTotal,
+        user_id: profile?.id,
+        items_count: cart.length
+      });
+
+      // 1. Criar o pedido no banco
+      console.log('Checkout: 📝 Invocando RPC create_checkout_v3...', {
+        total_amount: finalTotal,
+        user_id: profile?.id,
+        items: cart.map(item => ({
+          product_id: item.id,
+          quantity: item.quantity,
+          price_at_purchase: item.price,
+          points_at_purchase: item.usePoints ? item.points_cost : 0
+        }))
+      });
+
+      const { data: order, error: orderError } = await supabase.rpc('create_checkout_v3', {
+        payload: {
+          total_amount: finalTotal,
+          user_id: profile?.id || null,
+          referral_code: localStorage.getItem('hydravive_ref'), // CAPTURA O AFILIADO DO LINK
+          shipping_method: selectedShipping.name,
+          shipping_cost: shippingCost,
+          shipping_address: {
+            ...formData,
+            cep
+          },
+          items: cart.map(item => ({
+            product_id: item.id,
+            quantity: item.quantity,
+            price_at_purchase: item.price,
+            points_at_purchase: item.points_cost
+          }))
+        }
+      });
+
+      if (orderError) {
+        console.error('Checkout: ❌ Erro detalhado no RPC:', orderError);
+        throw orderError;
+      }
+
+      console.log('Checkout: ✅ Pedido criado via RPC com sucesso:', order.id);
+
+      // 3. Gerar link de pagamento na InfinitePay via Edge Function
+      const paymentItems = [
+        ...cart.map(item => ({
+          name: item.name,
+          quantity: item.quantity,
+          price: item.price
+        }))
+      ];
+
+      if (shippingCost > 0) {
+        paymentItems.push({
+          name: `Frete (${selectedShipping.name})`,
+          quantity: 1,
+          price: shippingCost
+        });
+      }
+
+      if (taxes > 0) {
+        paymentItems.push({
+          name: 'Impostos e Taxas',
+          quantity: 1,
+          price: taxes
+        });
+      }
+
+      const { data: paymentData, error: paymentError } = await supabase.functions.invoke('infinitepay-checkout', {
+        body: {
+          items: paymentItems,
+          order_id: order.id,
+          customer: {
+            name: formData.fullName,
+            email: formData.email,
+            phone: formData.phone
+          },
+          redirect_url: `${window.location.origin}/dashboard/financial`
+        }
+      });
+
+      if (paymentError) throw paymentError;
+
+      if (paymentData?.url) {
+        toast.success('Redirecionando para o pagamento...');
+        window.location.href = paymentData.url;
+      } else {
+        throw new Error('Link de pagamento não gerado');
+      }
+    } catch (error: any) {
+      console.error('Erro ao finalizar pedido:', error);
+      toast.error('Erro ao finalizar pedido: ' + error.message);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   return (
     <main className="max-w-[1200px] mx-auto px-6 py-8">
@@ -21,13 +189,34 @@ export default function CheckoutPage() {
         <span className="text-primary font-bold">Checkout Seguro</span>
       </nav>
 
-      <div className="flex flex-col lg:flex-row gap-12">
+      <div className="flex flex-col lg:flex-row gap-6 lg:gap-12">
         {/* Left Side: Forms */}
         <div className="flex-[1.5] flex flex-col gap-8">
           <div>
             <h1 className="text-3xl font-extrabold tracking-tight mb-2">Checkout Seguro</h1>
             <p className="text-slate-500 text-sm">Por favor, insira seus dados abaixo para concluir seu pedido.</p>
           </div>
+
+          {/* Login CTA for Guests */}
+          {!profile && (
+            <div className="bg-slate-900 rounded-[2rem] p-8 text-white flex flex-col md:flex-row items-center justify-between gap-6 shadow-2xl shadow-slate-900/20">
+              <div className="flex items-center gap-6">
+                <div className="size-16 rounded-2xl bg-white/10 flex items-center justify-center">
+                  <Lock className="size-8 text-primary" />
+                </div>
+                <div>
+                  <h3 className="text-xl font-black uppercase tracking-tight">Já possui uma conta?</h3>
+                  <p className="text-white/60 text-sm">Faça login para finalizar sua compra em poucos segundos.</p>
+                </div>
+              </div>
+              <button 
+                onClick={() => navigate('/login')}
+                className="px-8 py-4 bg-white text-slate-900 rounded-xl text-xs font-black uppercase tracking-widest hover:bg-primary hover:text-white transition-all active:scale-95 whitespace-nowrap"
+              >
+                Entrar na Conta
+              </button>
+            </div>
+          )}
 
           {/* Progress Bar */}
           <div className="bg-white rounded-xl p-6 shadow-sm border border-slate-100">
@@ -51,64 +240,121 @@ export default function CheckoutPage() {
             <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="md:col-span-2">
                 <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1">Nome Completo</label>
-                <input className="w-full rounded-lg border-slate-200 focus:ring-primary focus:border-primary" placeholder="João Silva" type="text" />
+                <input 
+                  className="w-full rounded-lg border-slate-200 focus:ring-primary focus:border-primary" 
+                  placeholder="Digite seu nome completo" 
+                  type="text" 
+                  value={formData.fullName}
+                  onChange={(e) => setFormData({...formData, fullName: e.target.value})}
+                />
               </div>
               <div>
                 <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1">Endereço de E-mail</label>
-                <input className="w-full rounded-lg border-slate-200 focus:ring-primary focus:border-primary" placeholder="joao@exemplo.com" type="email" />
+                <input 
+                  className="w-full rounded-lg border-slate-200 focus:ring-primary focus:border-primary" 
+                  placeholder="exemplo@email.com" 
+                  type="email" 
+                  value={formData.email}
+                  onChange={(e) => setFormData({...formData, email: e.target.value})}
+                />
               </div>
               <div>
                 <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1">Número de Telefone</label>
-                <input className="w-full rounded-lg border-slate-200 focus:ring-primary focus:border-primary" placeholder="+55 (11) 90000-0000" type="tel" />
+                <input 
+                  className="w-full rounded-lg border-slate-200 focus:ring-primary focus:border-primary" 
+                  placeholder="(00) 00000-0000 (WhatsApp)" 
+                  type="tel" 
+                  value={formData.phone}
+                  onChange={(e) => setFormData({...formData, phone: e.target.value})}
+                />
               </div>
               <div className="md:col-span-2">
                 <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1">Endereço</label>
-                <input className="w-full rounded-lg border-slate-200 focus:ring-primary focus:border-primary" placeholder="Rua das Águias, 123" type="text" />
+                <input 
+                  className="w-full rounded-lg border-slate-200 focus:ring-primary focus:border-primary" 
+                  placeholder="Nome da rua, nº e bairro" 
+                  type="text" 
+                  value={formData.address}
+                  onChange={(e) => setFormData({...formData, address: e.target.value})}
+                />
               </div>
               <div>
                 <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1">Cidade</label>
-                <input className="w-full rounded-lg border-slate-200 focus:ring-primary focus:border-primary" placeholder="São Paulo" type="text" />
+                <input 
+                  className="w-full rounded-lg border-slate-200 focus:ring-primary focus:border-primary" 
+                  placeholder="Digite sua cidade" 
+                  type="text" 
+                  value={formData.city}
+                  onChange={(e) => setFormData({...formData, city: e.target.value})}
+                />
               </div>
               <div>
                 <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1">CEP</label>
-                <input className="w-full rounded-lg border-slate-200 focus:ring-primary focus:border-primary" placeholder="01001-000" type="text" />
+                <input 
+                  className="w-full rounded-lg border-slate-200 focus:ring-primary focus:border-primary" 
+                  placeholder="00000-000" 
+                  type="text"
+                  value={cep}
+                  onChange={(e) => setCep(e.target.value)}
+                  maxLength={9}
+                />
               </div>
             </div>
           </section>
 
-          {/* Payment Section */}
+          {/* Shipping Options Section */}
           <section className="bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden">
-            <div className="p-6 border-b border-slate-50">
+            <div className="p-6 border-b border-slate-50 flex items-center justify-between">
               <h2 className="text-lg font-bold flex items-center gap-2">
-                <CreditCard className="text-primary size-5" />
-                Método de Pagamento
+                <Truck className="text-primary size-5" />
+                Opções de Entrega
               </h2>
+              {loadingShipping && <Loader2 className="size-5 text-primary animate-spin" />}
             </div>
             <div className="p-6">
-              <div className="flex border-b border-slate-100 mb-6">
-                <button className="px-6 py-3 border-b-2 border-primary text-primary font-bold text-sm">Cartão de Crédito</button>
-                <button className="px-6 py-3 border-b-2 border-transparent text-slate-400 hover:text-slate-600 font-bold text-sm">Pix</button>
-                <button className="px-6 py-3 border-b-2 border-transparent text-slate-400 hover:text-slate-600 font-bold text-sm">Boleto</button>
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="md:col-span-2">
-                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1">Número do Cartão</label>
-                  <div className="relative">
-                    <input className="w-full rounded-lg border-slate-200 focus:ring-primary focus:border-primary pr-10" placeholder="0000 0000 0000 0000" type="text" />
-                    <CreditCard className="absolute right-3 top-2.5 text-slate-400 size-5" />
-                  </div>
+              {!cep || cep.replace(/\D/g, '').length < 8 ? (
+                <div className="text-center py-8">
+                  <p className="text-slate-400 text-sm italic">Insira seu CEP para ver as opções de entrega</p>
                 </div>
-                <div>
-                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1">Data de Validade</label>
-                  <input className="w-full rounded-lg border-slate-200 focus:ring-primary focus:border-primary" placeholder="MM/AA" type="text" />
+              ) : loadingShipping ? (
+                <div className="flex flex-col items-center justify-center py-12 gap-4">
+                  <Loader2 className="size-8 text-primary animate-spin" />
+                  <p className="text-slate-400 text-xs font-bold uppercase tracking-widest">Buscando melhores tarifas...</p>
                 </div>
-                <div>
-                  <label className="block text-xs font-bold uppercase tracking-wider text-slate-500 mb-1">CVV</label>
-                  <input className="w-full rounded-lg border-slate-200 focus:ring-primary focus:border-primary" placeholder="123" type="text" />
+              ) : shippingOptions.length === 0 ? (
+                <div className="text-center py-8">
+                  <p className="text-red-400 text-sm">Nenhuma opção de frete disponível para este CEP.</p>
                 </div>
-              </div>
+              ) : (
+                <div className="grid grid-cols-1 gap-4">
+                  {shippingOptions.map((option) => (
+                    <button
+                      key={option.id}
+                      onClick={() => setSelectedShipping(option)}
+                      className={`flex items-center justify-between p-4 rounded-2xl border-2 transition-all ${selectedShipping?.id === option.id ? 'border-primary bg-primary/5' : 'border-slate-100 hover:border-slate-200 bg-white'}`}
+                    >
+                      <div className="flex items-center gap-4">
+                        <div className="size-12 rounded-xl bg-slate-50 border border-slate-100 flex items-center justify-center shrink-0">
+                          <Truck className="size-6 text-slate-400" />
+                        </div>
+                        <div className="text-left">
+                          <p className="font-bold text-sm text-slate-900">{option.name}</p>
+                          <p className="text-xs text-slate-500">Prazo: {option.delivery_time} dias úteis</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-4">
+                        <p className="font-black text-slate-900">R$ {Number(option.custom_price).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+                        <div className={`size-6 rounded-full border-2 flex items-center justify-center transition-all ${selectedShipping?.id === option.id ? 'border-primary bg-primary text-white' : 'border-slate-200'}`}>
+                          {selectedShipping?.id === option.id && <CheckCircle2 className="size-4" />}
+                        </div>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
           </section>
+
         </div>
 
         {/* Right Side: Order Summary */}
@@ -120,32 +366,38 @@ export default function CheckoutPage() {
               </div>
               <div className="p-6 flex flex-col gap-4">
                 {cart.map((item) => (
-                  <div key={item.id} className="flex flex-col gap-3">
+                  <div key={`${item.id}-${item.usePoints}`} className="flex flex-col gap-3">
                     <div className="flex gap-4">
                       <div className="size-20 rounded-lg bg-slate-100 flex-shrink-0 overflow-hidden border border-slate-100">
                         <img alt={item.name} className="w-full h-full object-cover" src={item.image} />
                       </div>
                       <div className="flex-1 flex flex-col justify-center">
-                        <h3 className="font-bold text-sm line-clamp-1">{item.name}</h3>
+                        <h3 className="font-bold text-sm line-clamp-1">
+                          {item.name} {item.usePoints && '(Resgate)'}
+                        </h3>
                         <p className="text-xs text-slate-500">{item.category}</p>
                         <div className="flex items-center justify-between mt-2">
-                          <p className="text-sm font-extrabold">R$ {(item.price * item.quantity).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+                          <p className="text-sm font-extrabold">
+                            {item.usePoints 
+                              ? `${item.points_cost} Pts` 
+                              : `R$ ${(item.price * item.quantity).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}
+                          </p>
                           <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-lg p-0.5 scale-90 origin-right">
                             <button 
-                              onClick={() => updateQuantity(item.id, item.quantity - 1)}
+                              onClick={() => updateQuantity(item.id, item.usePoints, item.quantity - 1)}
                               className="size-6 flex items-center justify-center rounded hover:bg-white transition-colors"
                             >
                               <Minus className="size-3" />
                             </button>
                             <span className="w-4 text-center text-xs font-bold">{item.quantity}</span>
                             <button 
-                              onClick={() => updateQuantity(item.id, item.quantity + 1)}
+                              onClick={() => updateQuantity(item.id, item.usePoints, item.quantity + 1)}
                               className="size-6 flex items-center justify-center rounded hover:bg-white transition-colors"
                             >
                               <Plus className="size-3" />
                             </button>
                             <button 
-                              onClick={() => removeFromCart(item.id)}
+                              onClick={() => removeFromCart(item.id, item.usePoints)}
                               className="ml-1 p-1 text-slate-300 hover:text-red-500 transition-colors"
                             >
                               <Trash2 className="size-3.5" />
@@ -169,7 +421,9 @@ export default function CheckoutPage() {
                   </div>
                   <div className="flex justify-between text-sm">
                     <span className="text-slate-500">Envio</span>
-                    <span className="text-green-500 font-bold uppercase text-[10px] tracking-widest">Grátis</span>
+                    <span className={shippingCost === 0 ? "text-green-500 font-bold uppercase text-[10px] tracking-widest" : "font-medium"}>
+                      {shippingCost === 0 ? 'Grátis' : `R$ ${shippingCost.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}
+                    </span>
                   </div>
                   <div className="flex justify-between text-sm">
                     <span className="text-slate-500">Impostos estim.</span>
@@ -185,9 +439,13 @@ export default function CheckoutPage() {
                   <input className="flex-1 text-sm rounded-lg border-slate-200 focus:ring-primary focus:border-primary" placeholder="Cupom de desconto" type="text" />
                   <button className="px-4 py-2 bg-slate-100 text-sm font-bold rounded-lg hover:bg-slate-200 transition-colors">Aplicar</button>
                 </div>
-                <button className="w-full bg-primary hover:bg-primary/90 text-white font-extrabold py-4 rounded-xl mt-4 transition-all shadow-md shadow-primary/20 flex items-center justify-center gap-2">
-                  <Lock className="size-4" />
-                  Concluir Compra
+                <button 
+                  onClick={handleCheckout}
+                  disabled={isSubmitting || cart.length === 0}
+                  className="w-full bg-primary hover:bg-primary/90 disabled:opacity-50 text-white font-extrabold py-4 rounded-xl mt-4 transition-all shadow-md shadow-primary/20 flex items-center justify-center gap-2"
+                >
+                  {isSubmitting ? <Loader2 className="size-4 animate-spin" /> : <Lock className="size-4" />}
+                  {isSubmitting ? 'Processando...' : 'Concluir Compra'}
                 </button>
                 <p className="text-[10px] text-center text-slate-400 mt-2">
                   Ao clicar em "Concluir Compra", você concorda com os Termos de Serviço e Política de Privacidade da Hydravive.

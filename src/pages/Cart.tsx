@@ -29,32 +29,36 @@ export default function Cart() {
         {/* Items List */}
         <div className="lg:col-span-2 flex flex-col gap-6">
           {cart.map((item) => (
-            <div key={item.id} className="flex flex-col sm:flex-row items-center gap-6 p-6 bg-white border border-slate-100 rounded-3xl group hover:border-primary/20 transition-all">
+            <div key={`${item.id}-${item.usePoints}`} className="flex flex-col sm:flex-row items-center gap-6 p-6 bg-white border border-slate-100 rounded-3xl group hover:border-primary/20 transition-all">
               <div className="size-24 sm:size-32 rounded-2xl overflow-hidden bg-slate-50 border border-slate-100 shrink-0">
                 <img src={item.image} alt={item.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
               </div>
               <div className="flex-1 flex flex-col gap-1 text-center sm:text-left">
-                <p className="text-[10px] font-black uppercase tracking-widest text-primary">{item.category}</p>
+                <p className="text-[10px] font-black uppercase tracking-widest text-primary">
+                  {item.category} {item.usePoints && '(Resgate)'}
+                </p>
                 <h3 className="font-bold text-lg text-slate-900">{item.name}</h3>
-                <p className="font-black text-primary mt-1 text-lg">R$ {item.price.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+                <p className="font-black text-primary mt-1 text-lg">
+                  {item.usePoints ? `${item.points_cost} Pontos` : `R$ ${item.price.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}
+                </p>
                 <div className="flex items-center justify-center sm:justify-start gap-4 mt-4">
                   <div className="flex items-center gap-2 bg-slate-50 border border-slate-200 rounded-xl p-1">
                     <button 
-                      onClick={() => updateQuantity(item.id, item.quantity - 1)}
+                      onClick={() => updateQuantity(item.id, item.usePoints, item.quantity - 1)}
                       className="size-8 flex items-center justify-center rounded-lg hover:bg-white transition-colors"
                     >
                       <Minus className="size-3" />
                     </button>
                     <span className="w-6 text-center text-sm font-bold">{item.quantity}</span>
                     <button 
-                      onClick={() => updateQuantity(item.id, item.quantity + 1)}
+                      onClick={() => updateQuantity(item.id, item.usePoints, item.quantity + 1)}
                       className="size-8 flex items-center justify-center rounded-lg hover:bg-white transition-colors"
                     >
                       <Plus className="size-3" />
                     </button>
                   </div>
                   <button 
-                    onClick={() => removeFromCart(item.id)}
+                    onClick={() => removeFromCart(item.id, item.usePoints)}
                     className="p-2 text-slate-400 hover:text-red-500 transition-colors"
                   >
                     <Trash2 className="size-5" />
@@ -63,7 +67,11 @@ export default function Cart() {
               </div>
               <div className="hidden sm:block text-right">
                 <p className="text-sm font-bold text-slate-400 mb-1">Subtotal</p>
-                <p className="text-xl font-black text-slate-900">R$ {(item.price * item.quantity).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</p>
+                <p className="text-xl font-black text-slate-900">
+                  {item.usePoints 
+                    ? `${(item.points_cost * item.quantity).toLocaleString('pt-BR')} Pontos` 
+                    : `R$ ${(item.price * item.quantity).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}
+                </p>
               </div>
             </div>
           ))}
