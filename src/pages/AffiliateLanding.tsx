@@ -1,165 +1,16 @@
-import React, { useState, useEffect } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import React from 'react';
 import { 
   Zap, 
   Target, 
   BarChart3, 
   ShieldCheck, 
-  ChevronRight, 
   ArrowRight, 
-  Star,
-  Users,
-  Trophy,
   Rocket as RocketIcon,
   Headset,
-  CheckCircle2,
-  Loader2
+  MessageSquare
 } from 'lucide-react';
-import { supabase } from '../lib/supabase';
-import toast from 'react-hot-toast';
 
 export default function AffiliateLanding() {
-  const navigate = useNavigate();
-  const [loading, setLoading] = useState(false);
-  const [fetchingSponsor, setFetchingSponsor] = useState(false);
-  const [sponsorName, setSponsorName] = useState<string | null>(null);
-
-  const [formData, setFormData] = useState({
-    firstName: '',
-    lastName: '',
-    email: '',
-    whatsapp: '',
-    cpf: '',
-    pixKey: '',
-    password: '',
-    confirmPassword: '',
-    referralCode: ''
-  });
-
-  // Carregar código de indicação
-  useEffect(() => {
-    const urlParams = new URLSearchParams(window.location.search);
-    const urlRef = urlParams.get('ref');
-    const savedRef = localStorage.getItem('hydravive_ref');
-    
-    const finalRef = urlRef || savedRef;
-    
-    if (finalRef) {
-      setFormData(prev => ({ ...prev, referralCode: finalRef }));
-      fetchSponsor(finalRef);
-      if (urlRef) localStorage.setItem('hydravive_ref', urlRef);
-    }
-  }, []);
-
-  const fetchSponsor = async (code: string) => {
-    if (!code) {
-      setSponsorName(null);
-      return;
-    }
-    setFetchingSponsor(true);
-    try {
-      const { data, error } = await supabase
-        .from('user_profiles')
-        .select('full_name')
-        .ilike('referral_code', code)
-        .single();
-
-      if (data) {
-        setSponsorName(data.full_name);
-      } else {
-        setSponsorName(null);
-      }
-    } catch (error) {
-      setSponsorName(null);
-    } finally {
-      setFetchingSponsor(false);
-    }
-  };
-
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target;
-    if (name === 'referralCode') {
-      const code = value.toUpperCase();
-      setFormData(prev => ({ ...prev, [name]: code }));
-      fetchSponsor(code);
-    } else {
-      setFormData(prev => ({ ...prev, [name]: value }));
-    }
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    if (formData.password !== formData.confirmPassword) {
-      return toast.error('As senhas não coincidem');
-    }
-
-    setLoading(true);
-    console.log('Iniciando cadastro (Landing) para:', formData.email);
-    try {
-      // 1. Pular verificação para testar conexão
-      /*
-      console.log('Verificando e-mail existente...');
-      const { data: existingUser, error: checkError } = await supabase
-        .from('user_profiles')
-        .select('id')
-        .eq('email', formData.email)
-        .maybeSingle();
-
-      if (checkError) {
-        console.error('Erro na verificação de e-mail:', checkError);
-      }
-
-      if (existingUser) {
-        throw new Error('Este e-mail já está cadastrado.');
-      }
-      */
-
-
-      // 2. Sign up user com Metadados para o Trigger
-      console.log('Chamando supabase.auth.signUp com metadados (Landing)...');
-      const { data: authData, error: authError } = await supabase.auth.signUp({
-        email: formData.email,
-        password: formData.password,
-        options: {
-          data: {
-            firstName: formData.firstName,
-            lastName: formData.lastName,
-            whatsapp: formData.whatsapp,
-            cpfCnpj: formData.cpf, // No SQL esperamos cpfCnpj
-            pixKey: formData.pixKey,
-            sponsor_code: formData.referralCode,
-            login: formData.firstName.toLowerCase() + Math.floor(Math.random() * 1000)
-          }
-        }
-      });
-
-      console.log('Resultado do signUp:', { authData, authError });
-
-      if (authError) throw authError;
-      if (!authData.user) throw new Error('Falha ao criar usuário');
-
-      // O Trigger SQL cuidará do resto (Perfil, Padrinho, Saldo)
-      console.log('Cadastro concluído com sucesso via Trigger!');
-      toast.success('Cadastro realizado com sucesso!');
-      
-      setTimeout(() => {
-        navigate('/dashboard');
-      }, 1500);
-      
-      // Limpar referência após cadastro
-      localStorage.removeItem('hydravive_ref');
-      
-    } catch (error: any) {
-      console.error('Erro capturado no catch:', error);
-      toast.error(error.message || 'Erro ao realizar cadastro');
-    } finally {
-      setLoading(false);
-      console.log('Fim do processo de cadastro.');
-    }
-
-  };
-
   return (
     <main className="min-h-screen bg-slate-50 pt-20">
       {/* Hero Section */}
@@ -177,7 +28,7 @@ export default function AffiliateLanding() {
               Junte-se à Hydravive e transforme sua rede de contatos em uma fonte de renda recorrente com purificadores de alta tecnologia.
             </p>
             <div className="flex flex-wrap gap-4">
-              <a href="#register" className="bg-primary text-white px-10 py-5 rounded-[2rem] font-black uppercase tracking-widest text-xs hover:brightness-110 transition-all shadow-xl shadow-primary/20">
+              <a href="https://wa.me/556296390724" target="_blank" rel="noopener noreferrer" className="bg-primary text-white px-10 py-5 rounded-[2rem] font-black uppercase tracking-widest text-xs hover:brightness-110 transition-all shadow-xl shadow-primary/20">
                 Seja um Afiliado
               </a>
               <a href="#benefits" className="bg-white/10 text-white px-10 py-5 rounded-[2rem] font-black uppercase tracking-widest text-xs hover:bg-white/20 transition-all">
@@ -227,111 +78,48 @@ export default function AffiliateLanding() {
         </div>
       </section>
 
-      {/* Registration Form */}
+      {/* WhatsApp CTA Section */}
       <section className="px-6 py-20 mb-20" id="register">
-        <div className="bg-white border border-slate-200 rounded-[2.5rem] p-8 md:p-16 grid grid-cols-1 lg:grid-cols-2 gap-12 overflow-hidden relative">
-          <div className="flex flex-col gap-6 relative z-10">
-            <h2 className="text-4xl font-black tracking-tight uppercase">Pronto para <br /><span className="text-primary">começar?</span></h2>
-            <p className="text-slate-600 text-lg">
-              Sua aprovação é imediata! Comece a lucrar agora mesmo.
+        <div className="bg-slate-900 border border-slate-800 rounded-[2.5rem] p-8 md:p-16 flex flex-col items-center text-center gap-8 overflow-hidden relative">
+          <div className="absolute inset-0 bg-gradient-to-br from-primary/10 to-transparent"></div>
+          
+          <div className="flex flex-col gap-6 relative z-10 max-w-2xl">
+            <h2 className="text-4xl md:text-5xl font-black tracking-tight uppercase text-white">
+              Pronto para <br /><span className="text-primary">fazer parte do time?</span>
+            </h2>
+            <p className="text-slate-400 text-lg">
+              O cadastro de novos afiliados agora é realizado através de nossa central de suporte ou por indicação direta de um parceiro. Clique no botão abaixo para falar com nosso time agora mesmo!
             </p>
-            <div className="flex flex-col gap-4 mt-4">
-              <div className="flex items-center gap-4">
-                <Zap className="size-6 text-primary" />
-                <span className="text-sm font-semibold">Aprovação imediata e automática</span>
-              </div>
-              <div className="flex items-center gap-4">
-                <RocketIcon className="size-6 text-primary" />
-                <span className="text-sm font-semibold">Acesso instantâneo ao treinamento</span>
-              </div>
-              <div className="flex items-center gap-4">
-                <Headset className="size-6 text-primary" />
-                <span className="text-sm font-semibold">Onboarding individual</span>
-              </div>
-            </div>
           </div>
 
-          <form onSubmit={handleSubmit} className="flex flex-col gap-4 relative z-10">
-            <div className="grid grid-cols-2 gap-4">
-              <div className="flex flex-col gap-2">
-                <label className="text-xs font-bold uppercase text-slate-500">Primeiro Nome</label>
-                <input required name="firstName" value={formData.firstName} onChange={handleChange} className="bg-slate-50 border-transparent focus:border-primary focus:ring-primary rounded-xl p-4 font-bold text-sm" placeholder="Bruno" type="text" />
-              </div>
-              <div className="flex flex-col gap-2">
-                <label className="text-xs font-bold uppercase text-slate-500">Sobrenome</label>
-                <input required name="lastName" value={formData.lastName} onChange={handleChange} className="bg-slate-50 border-transparent focus:border-primary focus:ring-primary rounded-xl p-4 font-bold text-sm" placeholder="Silva" type="text" />
-              </div>
-            </div>
-            
-            <div className="flex flex-col gap-2">
-              <label className="text-xs font-bold uppercase text-slate-500">Endereço de E-mail</label>
-              <input required name="email" value={formData.email} onChange={handleChange} className="bg-slate-50 border-transparent focus:border-primary focus:ring-primary rounded-xl p-4 font-bold text-sm" placeholder="bruno@exemplo.com" type="email" />
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="flex flex-col gap-2">
-                <label className="text-xs font-bold uppercase text-slate-500">WhatsApp</label>
-                <input required name="whatsapp" value={formData.whatsapp} onChange={handleChange} className="bg-slate-50 border-transparent focus:border-primary focus:ring-primary rounded-xl p-4 font-bold text-sm" placeholder="(11) 99999-9999" type="tel" />
-              </div>
-              <div className="flex flex-col gap-2">
-                <label className="text-xs font-bold uppercase text-slate-500">CPF ou CNPJ</label>
-                <input required name="cpf" value={formData.cpf} onChange={handleChange} className="bg-slate-50 border-transparent focus:border-primary focus:ring-primary rounded-xl p-4 font-bold text-sm" placeholder="000.000.000-00" type="text" />
-              </div>
-            </div>
-
-            <div className="flex flex-col gap-2">
-              <label className="text-xs font-bold uppercase text-slate-500">Chave PIX (E-mail, CPF ou Celular)</label>
-              <input required name="pixKey" value={formData.pixKey} onChange={handleChange} className="bg-slate-50 border-transparent focus:border-primary focus:ring-primary rounded-xl p-4 font-bold text-sm" placeholder="Sua chave PIX para recebimento" type="text" />
-            </div>
-
-            {/* Indicação MMN */}
-            <div className="mt-4 pt-4 border-t border-slate-100 flex flex-col gap-2">
-              <label className="text-xs font-black uppercase text-primary flex items-center gap-2">
-                <Users className="size-4" /> Código de Indicação (Opcional)
-              </label>
-              <input 
-                name="referralCode"
-                value={formData.referralCode} 
-                onChange={handleChange} 
-                className="bg-primary/5 border-primary/10 text-primary rounded-xl p-4 font-black uppercase placeholder:text-primary/30" 
-                placeholder="EX: ADMIN10" 
-                type="text" 
-              />
-              {fetchingSponsor ? (
-                <div className="flex items-center gap-2 text-[10px] text-slate-400 font-bold uppercase">
-                  <Loader2 className="size-3 animate-spin" /> Verificando rede...
-                </div>
-              ) : sponsorName ? (
-                <div className="flex items-center gap-2 text-[10px] text-emerald-600 font-bold uppercase">
-                  <CheckCircle2 className="size-3" /> Indicado por: {sponsorName}
-                </div>
-              ) : formData.referralCode ? (
-                <div className="flex items-center gap-2 text-[10px] text-red-400 font-bold uppercase">
-                  Código de indicação não encontrado
-                </div>
-              ) : null}
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="flex flex-col gap-2">
-                <label className="text-xs font-bold uppercase text-slate-500">Cadastro de Senha</label>
-                <input required name="password" value={formData.password} onChange={handleChange} className="bg-slate-50 border-transparent focus:border-primary focus:ring-primary rounded-xl p-4 font-bold text-sm" placeholder="••••••••" type="password" />
-              </div>
-              <div className="flex flex-col gap-2">
-                <label className="text-xs font-bold uppercase text-slate-500">Confirmação de Senha</label>
-                <input required name="confirmPassword" value={formData.confirmPassword} onChange={handleChange} className="bg-slate-50 border-transparent focus:border-primary focus:ring-primary rounded-xl p-4 font-bold text-sm" placeholder="••••••••" type="password" />
-              </div>
-            </div>
-
-            <button 
-              disabled={loading}
-              className="bg-primary text-white py-5 rounded-[2rem] font-black uppercase tracking-widest mt-4 hover:shadow-2xl hover:shadow-primary/20 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-3" 
-              type="submit"
+          <div className="flex flex-col gap-4 mt-4 relative z-10 w-full max-w-md">
+            <a 
+              href="https://wa.me/556296390724" 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="bg-[#25D366] text-white py-6 rounded-[2.5rem] font-black uppercase tracking-widest hover:shadow-2xl hover:shadow-green-500/20 transition-all flex items-center justify-center gap-3 text-lg"
             >
-              {loading ? <Loader2 className="size-5 animate-spin" /> : <>Enviar Inscrição <ArrowRight className="size-4" /></>}
-            </button>
-            <p className="text-[10px] text-center text-slate-400 mt-2 font-bold uppercase">Ao enviar, você concorda com nossos Termos de Afiliado.</p>
-          </form>
+              <MessageSquare className="size-6" /> Falar no WhatsApp
+            </a>
+            <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">
+              Atendimento de Segunda a Sexta, das 08:00 às 18:00
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mt-12 relative z-10 w-full border-t border-white/5 pt-12">
+            <div className="flex items-center gap-4 justify-center">
+              <Zap className="size-6 text-primary" />
+              <span className="text-xs font-black uppercase text-white tracking-widest">Aprovação Rápida</span>
+            </div>
+            <div className="flex items-center gap-4 justify-center">
+              <RocketIcon className="size-6 text-primary" />
+              <span className="text-xs font-black uppercase text-white tracking-widest">Acesso Instantâneo</span>
+            </div>
+            <div className="flex items-center gap-4 justify-center">
+              <Headset className="size-6 text-primary" />
+              <span className="text-xs font-black uppercase text-white tracking-widest">Suporte Dedicado</span>
+            </div>
+          </div>
         </div>
       </section>
     </main>

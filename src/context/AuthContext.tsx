@@ -11,6 +11,7 @@ interface UserProfile {
   cpf?: string;
   pix_key?: string;
   pix_type?: string;
+  referral_code?: string;
 }
 
 interface AuthContextType {

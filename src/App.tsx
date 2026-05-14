@@ -15,6 +15,7 @@ import Marketing from './pages/Marketing';
 import Financial from './pages/Financial';
 import Profile from './pages/Profile';
 import MyOrders from './pages/MyOrders';
+import RegisterReferral from './pages/RegisterReferral';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import AdminLogin from './pages/admin/AdminLogin';
@@ -128,6 +129,7 @@ function AppContent() {
 
           {/* Affiliate Dashboard Routes */}
           <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+          <Route path="/dashboard/register-referral" element={<ProtectedRoute><RegisterReferral /></ProtectedRoute>} />
           <Route path="/dashboard/network" element={<ProtectedRoute><Network /></ProtectedRoute>} />
           <Route path="/dashboard/marketing" element={<ProtectedRoute><Marketing /></ProtectedRoute>} />
           <Route path="/dashboard/financial" element={<ProtectedRoute><Financial /></ProtectedRoute>} />

@@ -154,9 +154,18 @@ export default function NetworkPage() {
           }
         }
 
-        // Achar a raiz pelo mocha_user_id ou ID numérico
-        const myProfileId = String(myProfile.id);
-        const rootNode = profileMap.get(myProfileId);
+        // Achar a raiz absoluta (quem está no topo da rede do usuário)
+        let topMostProfile = myProfile;
+        const findTopParent = (current: any) => {
+          if (!current.sponsor_id) return current;
+          const parent = allProfiles.find((p: any) => p.id === current.sponsor_id);
+          if (!parent || parent.id === current.id) return current;
+          return findTopParent(parent);
+        };
+
+        topMostProfile = findTopParent(myProfile);
+        const rootNodeId = String(topMostProfile.id);
+        const rootNode = profileMap.get(rootNodeId);
 
         if (rootNode && isMounted) {
           const setL = (n: any, l: number) => {
@@ -165,9 +174,9 @@ export default function NetworkPage() {
           };
           setL(rootNode, 1);
           setNetworkData(rootNode);
-          console.log('Network: ✨ Sucesso! Árvore montada.');
+          console.log('Network: ✨ Sucesso! Árvore montada a partir do topo:', topMostProfile.full_name);
         } else {
-          console.error('Network: ❌ Não foi possível definir a raiz:', myProfileId);
+          console.error('Network: ❌ Não foi possível definir a raiz:', rootNodeId);
         }
       } catch (err) {
         console.error('Network Error:', err);

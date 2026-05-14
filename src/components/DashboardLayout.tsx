@@ -14,7 +14,8 @@ import {
   Menu,
   X,
   Award,
-  ShoppingCart
+  ShoppingCart,
+  UserPlus,
 } from 'lucide-react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
@@ -32,6 +33,7 @@ export default function DashboardLayout({ children }: DashboardLayoutProps) {
 
   const menuItems = [
     { icon: LayoutDashboard, label: 'Início', path: '/dashboard' },
+    { icon: UserPlus, label: 'Cadastrar Indicado', path: '/dashboard/register-referral' },
     { icon: Target, label: 'Minha Rede', path: '/dashboard/network' },
     { icon: ImageIcon, label: 'Marketing', path: '/dashboard/marketing' },
     { icon: Wallet, label: 'Financeiro', path: '/dashboard/financial' },
