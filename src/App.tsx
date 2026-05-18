@@ -27,6 +27,9 @@ import AdminOrders from './pages/admin/AdminOrders';
 import AdminSettings from './pages/admin/AdminSettings';
 import AdminCategories from './pages/admin/AdminCategories';
 import MMNConfig from './pages/admin/MMNConfig';
+import AdminGraduations from './pages/admin/AdminGraduations';
+import AdminProductPoints from './pages/admin/AdminProductPoints';
+import AdminProductMMN from './pages/admin/AdminProductMMN';
 import Shop from './pages/Shop';
 import Cart from './pages/Cart';
 import ProductDetail from './pages/ProductDetail';
@@ -126,6 +129,9 @@ function AppContent() {
           <Route path="/admin/categories" element={<AdminRoute><AdminCategories /></AdminRoute>} />
           <Route path="/admin/settings" element={<AdminRoute><AdminSettings /></AdminRoute>} />
           <Route path="/admin/mmn/levels" element={<AdminRoute><MMNConfig /></AdminRoute>} />
+          <Route path="/admin/graduations" element={<AdminRoute><AdminGraduations /></AdminRoute>} />
+          <Route path="/admin/product-points" element={<AdminRoute><AdminProductPoints /></AdminRoute>} />
+          <Route path="/admin/mmn/products" element={<AdminRoute><AdminProductMMN /></AdminRoute>} />
 
           {/* Affiliate Dashboard Routes */}
           <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />

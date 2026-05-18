@@ -90,7 +90,7 @@ export default function AdminSettings() {
           <div>
             <h2 className="text-3xl font-black text-white uppercase tracking-tight flex items-center gap-3">
               <Settings className="text-primary size-8" />
-              Configurações Globais - TESTE
+              Configurações Globais
             </h2>
             <p className="text-slate-500 mt-1">Gerencie parâmetros estratégicos e regras do sistema.</p>
           </div>
@@ -137,38 +137,6 @@ export default function AdminSettings() {
                     onChange={(e) => handleUpdateSetting('withdrawal_fee', e.target.value)}
                     className="w-full bg-[#0F172A] border border-white/5 rounded-2xl px-5 py-3 text-white focus:ring-2 focus:ring-emerald-500/20 outline-none transition-all font-bold"
                     placeholder="Ex: 5.00"
-                  />
-                </div>
-              </div>
-            </div>
-
-            {/* Seção de Pontuação */}
-            <div className="bg-[#1E293B] border border-white/5 rounded-[2.5rem] overflow-hidden">
-              <div className="p-6 border-b border-white/5 bg-white/5">
-                <h3 className="text-sm font-black text-white uppercase tracking-[0.2em] flex items-center gap-2">
-                  <Trophy className="size-4 text-primary" />
-                  Ranking e Pontuação
-                </h3>
-              </div>
-              <div className="p-8 grid grid-cols-1 md:grid-cols-2 gap-8">
-                <div className="space-y-2">
-                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">R$ para 1 Ponto (Conversão)</label>
-                  <input 
-                    type="number" 
-                    value={getSetting('points_conversion_rate')?.value || ''}
-                    onChange={(e) => handleUpdateSetting('points_conversion_rate', e.target.value)}
-                    className="w-full bg-[#0F172A] border border-white/5 rounded-2xl px-5 py-3 text-white focus:ring-2 focus:ring-primary/20 outline-none transition-all font-bold"
-                    placeholder="Ex: 10"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Mínimo para Ativação Mensal (Pts)</label>
-                  <input 
-                    type="number" 
-                    value={getSetting('min_monthly_points')?.value || ''}
-                    onChange={(e) => handleUpdateSetting('min_monthly_points', e.target.value)}
-                    className="w-full bg-[#0F172A] border border-white/5 rounded-2xl px-5 py-3 text-white focus:ring-2 focus:ring-primary/20 outline-none transition-all font-bold"
-                    placeholder="Ex: 100"
                   />
                 </div>
               </div>

@@ -125,7 +125,7 @@ export default function AdminMMN() {
           <div>
             <h2 className="text-3xl font-black text-white uppercase tracking-tight flex items-center gap-3">
               <GitBranch className="text-primary size-8" />
-              Configurações MMN - TESTE
+              Configurações MMN - INDICAÇÃO
             </h2>
             <p className="text-slate-500 mt-1">Defina a profundidade da rede e as regras de comissionamento.</p>
           </div>

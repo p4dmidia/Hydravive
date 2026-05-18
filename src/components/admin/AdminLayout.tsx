@@ -15,7 +15,9 @@ import {
   Layers,
   ShoppingBag,
   ExternalLink,
-  FolderTree
+  FolderTree,
+  Trophy,
+  Zap
 } from 'lucide-react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from '../../lib/supabase';
@@ -37,6 +39,9 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
     { icon: FolderTree, label: 'Categorias', path: '/admin/categories' },
     { icon: ShoppingCart, label: 'Pedidos', path: '/admin/orders' },
     { icon: Layers, label: 'Configurações MMN', path: '/admin/mmn/levels' },
+    { icon: Zap, label: 'MMN por Produto', path: '/admin/mmn/products' },
+    { icon: Trophy, label: 'Graduações', path: '/admin/graduations' },
+    { icon: Zap, label: 'Pontos por Produto', path: '/admin/product-points' },
     { icon: Wallet, label: 'Saques', path: '/admin/withdrawals' },
     { icon: Settings, label: 'Configurações', path: '/admin/settings' },
     { icon: ShoppingBag, label: 'Visitar Loja', path: '/shop', external: true },
@@ -80,7 +85,7 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
           )}
         </div>
 
-        <nav className="flex-1 px-3 space-y-1">
+        <nav className="flex-1 px-3 space-y-1 overflow-y-auto min-h-0 custom-scrollbar">
           {menuItems.map((item) => {
             const isActive = location.pathname === item.path;
             return (

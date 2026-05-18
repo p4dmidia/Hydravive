@@ -72,22 +72,43 @@ export default function Dashboard() {
 
         if (profileData) {
           const numericId = profileData.id;
-          const [statsRes, rankingRes] = await Promise.all([
-            supabase.from('affiliate_stats').select('*').eq('user_id', numericId).maybeSingle(),
-            supabase.from('affiliate_stats').select('monthly_points, user_profiles(full_name, avatar_url)').order('monthly_points', { ascending: false }).limit(20)
+          const [statsRes, rankingRes, gradsRes] = await Promise.all([
+            supabase.from('affiliate_stats')
+              .select('*, graduations(*)')
+              .eq('user_id', numericId)
+              .maybeSingle(),
+            supabase.from('affiliate_stats')
+              .select('monthly_points, user_profiles(full_name, avatar_url)')
+              .order('monthly_points', { ascending: false })
+              .limit(20),
+            supabase.from('graduations')
+              .select('*')
+              .order('level_order', { ascending: true })
           ]);
 
           if (statsRes.data) {
             const s = statsRes.data;
+            const grads = gradsRes.data || [];
+            const currentGrad = s.graduations;
+            const nextGrad = grads.find((g: any) => g.level_order > (currentGrad?.level_order || 0));
+            
             const avg = s.total_sales > 0 ? (s.total_earnings / s.total_sales) : 0;
             
-            setStats(s);
+            setStats({
+              ...s,
+              current_graduation: currentGrad,
+              next_graduation: nextGrad
+            });
             setSalesCount(s.total_sales || 0);
             setAvgCommission(avg);
             
             // Salvar no Cache
             localStorage.setItem(cacheKey, JSON.stringify({
-              stats: s,
+              stats: {
+                ...s,
+                current_graduation: currentGrad,
+                next_graduation: nextGrad
+              },
               salesCount: s.total_sales || 0,
               ranking: rankingRes.data || [],
               avg: avg
@@ -284,9 +305,9 @@ export default function Dashboard() {
           </div>
           <div className="flex gap-3">
             <div className="bg-white border border-slate-200 rounded-3xl px-6 py-4 shadow-sm flex flex-col items-center justify-center min-w-[140px]">
-              <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">Status</span>
-              <span className={`text-sm font-black uppercase tracking-widest ${profile?.is_active !== false ? 'text-emerald-500' : 'text-red-500'}`}>
-                {profile?.is_active !== false ? 'Ativo' : 'Inativo'}
+              <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">Qualificação</span>
+              <span className={`text-sm font-black uppercase tracking-widest text-primary`}>
+                {stats?.current_graduation?.name || 'Afiliado'}
               </span>
             </div>
             <div className="bg-white border border-slate-200 rounded-3xl px-6 py-4 shadow-sm flex flex-col items-center justify-center min-w-[140px]">
@@ -360,16 +381,18 @@ export default function Dashboard() {
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
                     <div className="size-12 rounded-2xl bg-amber-500 flex items-center justify-center">
-                      <Target className="size-6 text-white" />
+                      <Trophy className="size-6 text-white" />
                     </div>
                     <div>
-                      <h3 className="text-xl font-black uppercase tracking-tight">Meta de Pontos Mensal</h3>
-                      <p className="text-white/50 text-xs font-bold uppercase tracking-widest">Reseta em 28 dias</p>
+                      <h3 className="text-xl font-black uppercase tracking-tight">Status de Qualificação</h3>
+                      <p className="text-white/50 text-xs font-bold uppercase tracking-widest">
+                        Nível Atual: {stats?.current_graduation?.name || 'Afiliado'}
+                      </p>
                     </div>
                   </div>
                   <div className="text-right">
-                    <span className="text-3xl font-black text-amber-500">{monthlyPoints}</span>
-                    <span className="text-white/30 font-black text-xl"> / {targetPoints}</span>
+                    <span className="text-3xl font-black text-amber-500">{monthlyPoints.toLocaleString()}</span>
+                    <span className="text-white/30 font-black text-xl"> / {(stats?.next_graduation?.points_target || 10000).toLocaleString()}</span>
                   </div>
                 </div>
                 
@@ -377,29 +400,29 @@ export default function Dashboard() {
                   <div className="h-4 bg-white/10 rounded-full overflow-hidden">
                     <div 
                       className="h-full bg-gradient-to-r from-amber-500 to-amber-300 rounded-full transition-all duration-1000 ease-out" 
-                      style={{ width: `${progressPercent}%` }}
+                      style={{ width: `${Math.min((monthlyPoints / (stats?.next_graduation?.points_target || 10000)) * 100, 100)}%` }}
                     />
                   </div>
                   <div className="flex justify-between text-[10px] font-black uppercase tracking-widest text-white/40">
-                    <span>Início do Mês</span>
-                    <span>{progressPercent}% da Meta Atingida</span>
-                    <span>Meta Final</span>
+                    <span>{stats?.current_graduation?.name || 'Início'}</span>
+                    <span>{Math.min(Math.round((monthlyPoints / (stats?.next_graduation?.points_target || 10000)) * 100), 100)}% para o próximo nível</span>
+                    <span>{stats?.next_graduation?.name || 'Meta Final'}</span>
                   </div>
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
                   <div className="bg-white/5 rounded-2xl p-4 border border-white/5">
                     <p className="text-[10px] font-black text-white/40 uppercase mb-1">Próxima Recompensa</p>
-                    <p className="text-sm font-bold">Kit Hydravive Pro</p>
+                    <p className="text-sm font-bold">{stats?.next_graduation?.reward || 'Consultar Admin'}</p>
                   </div>
                   <div className="bg-white/5 rounded-2xl p-4 border border-white/5">
                     <p className="text-[10px] font-black text-white/40 uppercase mb-1">Faltam</p>
-                    <p className="text-sm font-bold text-amber-500">{targetPoints - monthlyPoints} PTS</p>
+                    <p className="text-sm font-bold text-amber-500">{Math.max(0, (stats?.next_graduation?.points_target || 10000) - monthlyPoints).toLocaleString()} PTS</p>
                   </div>
                 </div>
               </div>
               <div className="absolute -bottom-10 -right-10 opacity-5">
-                <Coins className="size-64" />
+                <Trophy className="size-64" />
               </div>
             </div>
 

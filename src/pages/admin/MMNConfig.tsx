@@ -41,7 +41,19 @@ export default function MMNConfig() {
         .order('level', { ascending: true });
 
       if (error) throw error;
-      setLevels(data || []);
+      
+      // Garantir que o nível 0 (Indicação Direta) exista se não estiver no banco
+      const existing = data || [];
+      const hasLevelZero = existing.some(l => l.level === 0);
+      
+      if (!hasLevelZero) {
+        setLevels([
+          { level: 0, amount: 400, description: 'Indicação Direta (Bônus Extra)', commission_type: 'fixed', is_active: true },
+          ...existing
+        ]);
+      } else {
+        setLevels(existing);
+      }
     } catch (error: any) {
       toast.error('Erro ao carregar configurações MMN');
     } finally {
@@ -50,7 +62,7 @@ export default function MMNConfig() {
   };
 
   const handleAddLevel = () => {
-    const nextLevel = levels.length + 1;
+    const nextLevel = Math.max(...levels.map(l => l.level), 0) + 1;
     const newLevel: MMNLevel = {
       level: nextLevel,
       amount: 0,
@@ -62,8 +74,9 @@ export default function MMNConfig() {
   };
 
   const handleRemoveLevel = (index: number) => {
-    if (levels.length === 1) return toast.error('É necessário ter pelo menos 1 nível');
-    const newLevels = levels.filter((_, i) => i !== index).map((l, i) => ({ ...l, level: i + 1 }));
+    if (levels[index].level === 0) return toast.error('O bônus de indicação direta não pode ser removido');
+    if (levels.length <= 1) return toast.error('É necessário ter pelo menos 1 nível');
+    const newLevels = levels.filter((_, i) => i !== index);
     setLevels(newLevels);
   };
 
@@ -76,8 +89,6 @@ export default function MMNConfig() {
   const saveChanges = async () => {
     setIsSaving(true);
     try {
-      console.log('--- INICIANDO SALVAMENTO MMN (FIX) ---');
-      
       // REMOVEMOS O ID PARA EVITAR ERRO 400 NO UPSERT
       const payload = levels.map(l => ({
         level: l.level,
@@ -94,14 +105,13 @@ export default function MMNConfig() {
 
       if (error) throw error;
 
-      // Limpeza de níveis removidos
-      const maxLevel = levels.length;
+      // Limpeza de níveis removidos (mantendo o 0)
+      const maxLevel = Math.max(...levels.map(l => l.level));
       await supabase.from('cashback_config').delete().gt('level', maxLevel);
 
-      toast.success('Configurações MMN salvas com sucesso!');
+      toast.success('Configurações salvas com sucesso!');
       fetchLevels();
     } catch (error: any) {
-      console.error('Erro no salvamento:', error);
       toast.error('Erro ao salvar: ' + (error.details || error.message));
     } finally {
       setIsSaving(false);
@@ -110,14 +120,14 @@ export default function MMNConfig() {
 
   return (
     <AdminLayout>
-      <div className="space-y-8">
+      <div className="space-y-8 pb-20">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
             <h2 className="text-3xl font-black text-white uppercase tracking-tight flex items-center gap-3">
               <GitBranch className="text-primary size-8" />
-              Configurações MMN - TESTE
+              Configurações MMN - INDICAÇÃO
             </h2>
-            <p className="text-slate-500 mt-1">Defina a profundidade da rede e os ganhos por nível.</p>
+            <p className="text-slate-500 mt-1">Defina o bônus de indicação direta e os ganhos por nível da rede.</p>
           </div>
           <button 
             onClick={saveChanges}
@@ -137,14 +147,17 @@ export default function MMNConfig() {
         ) : (
           <div className="space-y-4">
             {levels.map((item, index) => (
-              <div key={index} className="bg-[#1E293B] border border-white/5 rounded-[2.5rem] p-8 flex flex-col lg:flex-row items-center gap-8 group hover:border-primary/30 transition-all">
-                <div className="size-20 rounded-[2rem] bg-[#0F172A] border border-white/5 flex flex-col items-center justify-center shrink-0 shadow-inner group-hover:bg-primary/10 transition-colors">
+              <div 
+                key={index} 
+                className={`border rounded-[2.5rem] p-8 flex flex-col lg:flex-row items-center gap-8 group transition-all ${item.level === 0 ? 'bg-primary/5 border-primary/20 shadow-xl shadow-primary/5' : 'bg-[#1E293B] border-white/5 hover:border-primary/30'}`}
+              >
+                <div className={`size-20 rounded-[2rem] border flex flex-col items-center justify-center shrink-0 shadow-inner transition-colors ${item.level === 0 ? 'bg-primary/20 border-primary/30' : 'bg-[#0F172A] border-white/5 group-hover:bg-primary/10'}`}>
                   <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest leading-none mb-1">Nível</p>
-                  <p className="text-3xl font-black text-white leading-none">{item.level}</p>
+                  <p className={`text-3xl font-black leading-none ${item.level === 0 ? 'text-primary' : 'text-white'}`}>{item.level}</p>
                 </div>
 
                 <div className="flex-1 w-full space-y-2">
-                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Descrição</label>
+                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">{item.level === 0 ? 'Bônus de Indicação Direta' : 'Descrição do Ganho'}</label>
                   <input 
                     type="text" 
                     value={item.description}
@@ -180,16 +193,21 @@ export default function MMNConfig() {
                       onChange={(e) => updateLevelField(index, 'amount', Number(e.target.value))}
                       className="w-full bg-[#0F172A] border border-white/5 rounded-2xl px-6 py-4 text-white font-black text-center outline-none focus:ring-2 focus:ring-primary/20 transition-all"
                     />
+                    <span className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-600 font-bold">
+                      {item.commission_type === 'percentage' ? '%' : 'R$'}
+                    </span>
                   </div>
                 </div>
 
                 <div className="flex gap-2 shrink-0 lg:pt-6">
-                  <button 
-                    onClick={() => handleRemoveLevel(index)}
-                    className="p-4 bg-red-500/10 text-red-500 rounded-2xl hover:bg-red-500 hover:text-white transition-all shadow-lg shadow-red-500/5 active:scale-95"
-                  >
-                    <Trash2 className="size-6" />
-                  </button>
+                  {item.level !== 0 && (
+                    <button 
+                      onClick={() => handleRemoveLevel(index)}
+                      className="p-4 bg-red-500/10 text-red-500 rounded-2xl hover:bg-red-500 hover:text-white transition-all shadow-lg shadow-red-500/5 active:scale-95"
+                    >
+                      <Trash2 className="size-6" />
+                    </button>
+                  )}
                 </div>
               </div>
             ))}
