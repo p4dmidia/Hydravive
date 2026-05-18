@@ -32,6 +32,11 @@ interface Affiliate {
   phone?: string;
   cpf?: string;
   pix_key?: string;
+  activation_status?: {
+    is_active_this_month: boolean;
+    has_sale: boolean;
+    has_referral: boolean;
+  };
 }
 
 export default function AdminAffiliates() {
@@ -48,13 +53,31 @@ export default function AdminAffiliates() {
 
   const fetchAffiliates = async () => {
     try {
-      const { data, error } = await supabase
+      const { data: profiles, error: profilesErr } = await supabase
         .from('user_profiles')
         .select('*')
         .order('created_at', { ascending: false });
 
-      if (error) throw error;
-      setAffiliates(data || []);
+      if (profilesErr) throw profilesErr;
+
+      let statusMap = new Map();
+      try {
+        const { data: statusData, error: statusErr } = await supabase
+          .from('affiliate_activation_status')
+          .select('*');
+        if (!statusErr && statusData) {
+          statusMap = new Map(statusData.map(s => [s.user_id, s]));
+        }
+      } catch (e) {
+        console.warn('View affiliate_activation_status não encontrada, pulando carga de ativação.');
+      }
+
+      const merged = (profiles || []).map(p => ({
+        ...p,
+        activation_status: statusMap.get(p.id) || { is_active_this_month: false, has_sale: false, has_referral: false }
+      }));
+
+      setAffiliates(merged);
     } catch (error: any) {
       toast.error('Erro ao carregar afiliados');
     } finally {
@@ -170,6 +193,7 @@ export default function AdminAffiliates() {
                     <th className="px-8 py-6 text-[10px] font-black text-slate-500 uppercase tracking-widest">Usuário</th>
                     <th className="px-8 py-6 text-[10px] font-black text-slate-500 uppercase tracking-widest">Contato</th>
                     <th className="px-8 py-6 text-[10px] font-black text-slate-500 uppercase tracking-widest">Permissão</th>
+                    <th className="px-8 py-6 text-[10px] font-black text-slate-500 uppercase tracking-widest">Ativação Mensal</th>
                     <th className="px-8 py-6 text-[10px] font-black text-slate-500 uppercase tracking-widest text-right">Ações</th>
                   </tr>
                 </thead>
@@ -206,6 +230,32 @@ export default function AdminAffiliates() {
                         <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${item.role === 'admin' ? 'bg-amber-500/10 text-amber-500' : 'bg-primary/10 text-primary'}`}>
                           {item.role}
                         </span>
+                      </td>
+                      <td className="px-8 py-6">
+                        {item.role === 'customer' ? (
+                          <span className="text-[10px] text-slate-600 font-bold uppercase tracking-widest">-</span>
+                        ) : (
+                          <div className="flex flex-col gap-1">
+                            <span className={`w-fit px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest ${
+                              item.activation_status?.is_active_this_month
+                                ? 'bg-emerald-500/15 text-emerald-500'
+                                : 'bg-rose-500/15 text-rose-500'
+                            }`}>
+                              {item.activation_status?.is_active_this_month ? 'Ativo' : 'Inativo'}
+                            </span>
+                            {item.activation_status?.is_active_this_month && (
+                              <p className="text-[8px] text-slate-500 font-bold uppercase tracking-wider">
+                                {item.activation_status?.has_sale && item.activation_status?.has_referral
+                                  ? 'Venda & Indicação'
+                                  : item.activation_status?.has_sale
+                                  ? 'Venda Direta'
+                                  : item.activation_status?.has_referral
+                                  ? 'Indicação'
+                                  : 'Ativação Direta'}
+                              </p>
+                            )}
+                          </div>
+                        )}
                       </td>
                       <td className="px-8 py-6 text-right">
                         <div className="flex items-center justify-end gap-2">

@@ -32,6 +32,7 @@ export default function Dashboard() {
   const [salesCount, setSalesCount] = React.useState(0);
   const [avgCommission, setAvgCommission] = React.useState(0);
   const [ranking, setRanking] = React.useState<any[]>([]);
+  const [activationStatus, setActivationStatus] = React.useState<any>(null);
 
   React.useEffect(() => {
     const targetId = profile?.id || user?.id;
@@ -54,6 +55,7 @@ export default function Dashboard() {
         setSalesCount(p.salesCount);
         setRanking(p.ranking);
         setAvgCommission(p.avg);
+        if (p.activationStatus) setActivationStatus(p.activationStatus);
         setLoading(false); // Libera a tela na hora com o cache
       }
 
@@ -72,7 +74,7 @@ export default function Dashboard() {
 
         if (profileData) {
           const numericId = profileData.id;
-          const [statsRes, rankingRes, gradsRes] = await Promise.all([
+          const [statsRes, rankingRes, gradsRes, activationRes] = await Promise.all([
             supabase.from('affiliate_stats')
               .select('*, graduations(*)')
               .eq('user_id', numericId)
@@ -83,8 +85,18 @@ export default function Dashboard() {
               .limit(20),
             supabase.from('graduations')
               .select('*')
-              .order('level_order', { ascending: true })
+              .order('level_order', { ascending: true }),
+            supabase.from('affiliate_activation_status')
+              .select('*')
+              .eq('user_id', numericId)
+              .maybeSingle()
           ]);
+
+          let actStatus = { is_active_this_month: false, has_sale: false, has_referral: false };
+          if (activationRes && !activationRes.error && activationRes.data) {
+            actStatus = activationRes.data;
+          }
+          setActivationStatus(actStatus);
 
           if (statsRes.data) {
             const s = statsRes.data;
@@ -111,7 +123,8 @@ export default function Dashboard() {
               },
               salesCount: s.total_sales || 0,
               ranking: rankingRes.data || [],
-              avg: avg
+              avg: avg,
+              activationStatus: actStatus
             }));
           }
           if (rankingRes.data) setRanking(rankingRes.data);
@@ -316,6 +329,73 @@ export default function Dashboard() {
             </div>
           </div>
         </div>
+
+        {/* Banner de Ativação Mensal */}
+        {activationStatus && (
+          <div className={`p-8 rounded-[2.5rem] border transition-all duration-300 relative overflow-hidden ${
+            activationStatus.is_active_this_month 
+              ? 'bg-emerald-500/[0.03] border-emerald-500/20 shadow-xl shadow-emerald-500/5' 
+              : 'bg-amber-500/[0.03] border-amber-500/20 shadow-xl shadow-amber-500/5'
+          }`}>
+            <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
+              <div className="flex items-center gap-5">
+                <div className={`size-14 rounded-2xl flex items-center justify-center shrink-0 shadow-lg ${
+                  activationStatus.is_active_this_month 
+                    ? 'bg-emerald-500 text-white shadow-emerald-500/20' 
+                    : 'bg-amber-500 text-white shadow-amber-500/20'
+                }`}>
+                  {activationStatus.is_active_this_month ? (
+                    <Trophy className="size-7" />
+                  ) : (
+                    <Target className="size-7 animate-pulse" />
+                  )}
+                </div>
+                <div>
+                  <h3 className={`text-xl font-black uppercase tracking-tight ${
+                    activationStatus.is_active_this_month ? 'text-emerald-600 font-extrabold' : 'text-amber-600 font-extrabold'
+                  }`}>
+                    {activationStatus.is_active_this_month 
+                      ? 'Sua Conta está Ativada! 🎉' 
+                      : 'Ativação Mensal Pendente ⚠️'
+                    }
+                  </h3>
+                  <p className="text-sm mt-1 font-medium leading-relaxed max-w-2xl text-slate-500">
+                    {activationStatus.is_active_this_month 
+                      ? `Parabéns! Você já realizou as metas deste mês e está elegível para receber todas as comissões de rede de 10 níveis.` 
+                      : 'Para desbloquear o recebimento de comissões de rede este mês, você precisa realizar pelo menos 1 venda direta ou indicar/recrutar 1 novo afiliado.'
+                    }
+                  </p>
+                </div>
+              </div>
+              <div className="shrink-0 flex flex-wrap gap-3">
+                <div className={`px-4 py-2.5 rounded-2xl border text-xs font-black uppercase tracking-widest flex items-center gap-2 ${
+                  activationStatus.has_sale 
+                    ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-500' 
+                    : 'bg-slate-50 border-slate-200 text-slate-400'
+                }`}>
+                  <DollarSign className="size-4" /> Venda Mensal: {activationStatus.has_sale ? 'OK' : 'Pendente'}
+                </div>
+                <div className={`px-4 py-2.5 rounded-2xl border text-xs font-black uppercase tracking-widest flex items-center gap-2 ${
+                  activationStatus.has_referral 
+                    ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-500' 
+                    : 'bg-slate-50 border-slate-200 text-slate-400'
+                }`}>
+                  <Users className="size-4" /> Indicação Mensal: {activationStatus.has_referral ? 'OK' : 'Pendente'}
+                </div>
+              </div>
+            </div>
+            {/* Background elements */}
+            <div className={`absolute -bottom-10 -right-10 opacity-5 pointer-events-none ${
+              activationStatus.is_active_this_month ? 'text-emerald-500' : 'text-amber-500'
+            }`}>
+              {activationStatus.is_active_this_month ? (
+                <Trophy className="size-48" />
+              ) : (
+                <Target className="size-48" />
+              )}
+            </div>
+          </div>
+        )}
 
         {/* Stats Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
