@@ -114,8 +114,7 @@ export default function AdminProductMMN() {
         product_id: selectedProduct.id,
         level: c.level,
         amount: c.amount,
-        commission_type: c.commission_type,
-        updated_at: new Date().toISOString()
+        commission_type: c.commission_type
       }));
 
       const { error } = await supabase

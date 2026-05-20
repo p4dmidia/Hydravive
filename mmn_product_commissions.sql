@@ -151,3 +151,27 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
+-- 4. SEGURANÇA (RLS)
+ALTER TABLE public.product_commissions ENABLE ROW LEVEL SECURITY;
+
+-- Permite que qualquer usuário autenticado veja as comissões de produtos
+DROP POLICY IF EXISTS "Qualquer um pode ver comissões de produtos" ON public.product_commissions;
+CREATE POLICY "Qualquer um pode ver comissões de produtos" ON public.product_commissions 
+FOR SELECT TO authenticated USING (true);
+
+-- Permite que apenas admins gerenciem as comissões de produtos
+DROP POLICY IF EXISTS "Admins gerenciam comissões de produtos" ON public.product_commissions;
+CREATE POLICY "Admins gerenciam comissões de produtos" ON public.product_commissions 
+FOR ALL TO authenticated USING (
+    EXISTS (
+        SELECT 1 FROM public.user_profiles 
+        WHERE mocha_user_id = auth.uid()::text 
+        AND role = 'admin'
+    )
+);
+
+-- Garantir permissões
+GRANT ALL ON public.product_commissions TO postgres, service_role;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.product_commissions TO authenticated;
+GRANT SELECT ON public.product_commissions TO anon;
+
