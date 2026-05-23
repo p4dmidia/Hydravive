@@ -46,6 +46,8 @@ export default function AdminAffiliates() {
   
   const [editingUser, setEditingUser] = useState<Affiliate | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [activeTab, setActiveTab] = useState<'all' | 'pending'>('pending');
+  const [orders, setOrders] = useState<any[]>([]);
 
   useEffect(() => {
     fetchAffiliates();
@@ -59,6 +61,16 @@ export default function AdminAffiliates() {
         .order('created_at', { ascending: false });
 
       if (profilesErr) throw profilesErr;
+
+      // Buscar pedidos pagos para cruzamento inteligente
+      const { data: paidOrders, error: ordersErr } = await supabase
+        .from('orders')
+        .select('id, total_amount, status, created_at, shipping_address')
+        .eq('status', 'paid');
+      
+      if (!ordersErr && paidOrders) {
+        setOrders(paidOrders);
+      }
 
       let statusMap = new Map();
       try {
@@ -147,11 +159,25 @@ export default function AdminAffiliates() {
     }
   };
 
+  const getMatchingOrder = (email: string) => {
+    if (!email) return null;
+    return orders.find(order => {
+      const addr = order.shipping_address;
+      if (!addr) return false;
+      const orderEmail = typeof addr === 'string' ? JSON.parse(addr).email : addr.email;
+      return orderEmail?.toLowerCase() === email.toLowerCase();
+    });
+  };
+
   const filteredAffiliates = affiliates.filter(a => 
     (a.full_name?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
     (a.email?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
     (a.phone || '').includes(searchTerm)
   );
+
+  const affiliatesToDisplay = activeTab === 'pending'
+    ? filteredAffiliates.filter(a => !a.is_active && a.role === 'affiliate')
+    : filteredAffiliates;
 
   return (
     <AdminLayout>
@@ -164,6 +190,28 @@ export default function AdminAffiliates() {
             </h2>
             <p className="text-slate-500 mt-1">Controle total sobre afiliados, administradores e clientes.</p>
           </div>
+        </div>
+
+        {/* Seleção de Abas */}
+        <div className="flex gap-6 border-b border-white/5 pb-px">
+          <button
+            onClick={() => setActiveTab('pending')}
+            className={`pb-4 text-xs font-black uppercase tracking-widest relative transition-all ${
+              activeTab === 'pending' ? 'text-primary' : 'text-slate-500 hover:text-slate-300'
+            }`}
+          >
+            Aprovações Pendentes ({affiliates.filter(a => !a.is_active && a.role === 'affiliate').length})
+            {activeTab === 'pending' && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary"></div>}
+          </button>
+          <button
+            onClick={() => setActiveTab('all')}
+            className={`pb-4 text-xs font-black uppercase tracking-widest relative transition-all ${
+              activeTab === 'all' ? 'text-primary' : 'text-slate-500 hover:text-slate-300'
+            }`}
+          >
+            Todos os Usuários ({affiliates.length})
+            {activeTab === 'all' && <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary"></div>}
+          </button>
         </div>
 
         <div className="bg-[#1E293B] border border-white/5 rounded-[2rem] p-4 flex flex-col md:flex-row gap-4">
@@ -185,6 +233,10 @@ export default function AdminAffiliates() {
               <Loader2 className="size-10 text-primary animate-spin" />
               <p className="text-slate-500 font-bold uppercase tracking-widest text-xs">Carregando...</p>
             </div>
+          ) : affiliatesToDisplay.length === 0 ? (
+            <div className="text-center py-16 text-slate-500">
+              <p className="font-bold text-sm">Nenhum registro encontrado</p>
+            </div>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-left border-collapse">
@@ -192,13 +244,19 @@ export default function AdminAffiliates() {
                   <tr className="border-b border-white/5">
                     <th className="px-8 py-6 text-[10px] font-black text-slate-500 uppercase tracking-widest">Usuário</th>
                     <th className="px-8 py-6 text-[10px] font-black text-slate-500 uppercase tracking-widest">Contato</th>
-                    <th className="px-8 py-6 text-[10px] font-black text-slate-500 uppercase tracking-widest">Permissão</th>
-                    <th className="px-8 py-6 text-[10px] font-black text-slate-500 uppercase tracking-widest">Ativação Mensal</th>
+                    {activeTab === 'pending' ? (
+                      <th className="px-8 py-6 text-[10px] font-black text-slate-500 uppercase tracking-widest">Verificação de Pagamento</th>
+                    ) : (
+                      <>
+                        <th className="px-8 py-6 text-[10px] font-black text-slate-500 uppercase tracking-widest">Permissão</th>
+                        <th className="px-8 py-6 text-[10px] font-black text-slate-500 uppercase tracking-widest">Ativação Mensal</th>
+                      </>
+                    )}
                     <th className="px-8 py-6 text-[10px] font-black text-slate-500 uppercase tracking-widest text-right">Ações</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-white/5">
-                  {filteredAffiliates.map((item) => (
+                  {affiliatesToDisplay.map((item) => (
                     <tr key={item.id} className="hover:bg-white/[0.02] transition-colors group">
                       <td className="px-8 py-6">
                         <div className="flex items-center gap-4">
@@ -226,53 +284,102 @@ export default function AdminAffiliates() {
                           </div>
                         </div>
                       </td>
-                      <td className="px-8 py-6">
-                        <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${item.role === 'admin' ? 'bg-amber-500/10 text-amber-500' : 'bg-primary/10 text-primary'}`}>
-                          {item.role}
-                        </span>
-                      </td>
-                      <td className="px-8 py-6">
-                        {item.role === 'customer' ? (
-                          <span className="text-[10px] text-slate-600 font-bold uppercase tracking-widest">-</span>
-                        ) : (
-                          <div className="flex flex-col gap-1">
-                            <span className={`w-fit px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest ${
-                              item.activation_status?.is_active_this_month
-                                ? 'bg-emerald-500/15 text-emerald-500'
-                                : 'bg-rose-500/15 text-rose-500'
-                            }`}>
-                              {item.activation_status?.is_active_this_month ? 'Ativo' : 'Inativo'}
+                      {activeTab === 'pending' ? (
+                        <td className="px-8 py-6">
+                          {(() => {
+                            const matchingOrder = getMatchingOrder(item.email);
+                            if (matchingOrder) {
+                              return (
+                                <div className="flex flex-col gap-1">
+                                  <span className="w-fit px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                                    Compra Confirmada 🎉
+                                  </span>
+                                  <p className="text-[11px] text-slate-300 font-bold">
+                                    Pedido #{matchingOrder.id} - R$ {Number(matchingOrder.total_amount).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                                  </p>
+                                  <p className="text-[9px] text-slate-500 font-bold uppercase">
+                                    Pago em: {new Date(matchingOrder.created_at).toLocaleDateString('pt-BR')}
+                                  </p>
+                                </div>
+                              );
+                            } else {
+                              return (
+                                <div className="flex flex-col gap-1">
+                                  <span className="w-fit px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider bg-rose-500/10 text-rose-400 border border-rose-500/20">
+                                    Pagamento não encontrado
+                                  </span>
+                                  <p className="text-[10px] text-slate-500 font-medium">
+                                    Nenhum pedido pago para o e-mail cadastrado
+                                  </p>
+                                </div>
+                              );
+                            }
+                          })()}
+                        </td>
+                      ) : (
+                        <>
+                          <td className="px-8 py-6">
+                            <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${item.role === 'admin' ? 'bg-amber-500/10 text-amber-500' : 'bg-primary/10 text-primary'}`}>
+                              {item.role}
                             </span>
-                            {item.activation_status?.is_active_this_month && (
-                              <p className="text-[8px] text-slate-500 font-bold uppercase tracking-wider">
-                                {item.activation_status?.has_sale && item.activation_status?.has_referral
-                                  ? 'Venda & Indicação'
-                                  : item.activation_status?.has_sale
-                                  ? 'Venda Direta'
-                                  : item.activation_status?.has_referral
-                                  ? 'Indicação'
-                                  : 'Ativação Direta'}
-                              </p>
+                          </td>
+                          <td className="px-8 py-6">
+                            {item.role === 'customer' ? (
+                              <span className="text-[10px] text-slate-600 font-bold uppercase tracking-widest">-</span>
+                            ) : (
+                              <div className="flex flex-col gap-1">
+                                <span className={`w-fit px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest ${
+                                  item.activation_status?.is_active_this_month
+                                    ? 'bg-emerald-500/15 text-emerald-500'
+                                    : 'bg-rose-500/15 text-rose-500'
+                                }`}>
+                                  {item.activation_status?.is_active_this_month ? 'Ativo' : 'Inativo'}
+                                </span>
+                                {item.activation_status?.is_active_this_month && (
+                                  <p className="text-[8px] text-slate-500 font-bold uppercase tracking-wider">
+                                    {item.activation_status?.has_sale && item.activation_status?.has_referral
+                                      ? 'Venda & Indicação'
+                                      : item.activation_status?.has_sale
+                                      ? 'Venda Direta'
+                                      : item.activation_status?.has_referral
+                                      ? 'Indicação'
+                                      : 'Ativação Direta'}
+                                  </p>
+                                )}
+                              </div>
                             )}
-                          </div>
-                        )}
-                      </td>
+                          </td>
+                        </>
+                      )}
                       <td className="px-8 py-6 text-right">
                         <div className="flex items-center justify-end gap-2">
-                          <button 
-                            onClick={() => setEditingUser(item)}
-                            className="p-2.5 bg-white/5 hover:bg-primary/10 hover:text-primary text-slate-500 rounded-xl transition-all"
-                            title="Editar Dados"
-                          >
-                            <Edit className="size-5" />
-                          </button>
-                          <button 
-                            onClick={() => toggleStatus(item.id, item.is_active)}
-                            className={`p-2.5 rounded-xl transition-all ${item.is_active ? 'bg-red-500/5 text-red-500/50 hover:bg-red-500 hover:text-white' : 'bg-emerald-500/5 text-emerald-500/50 hover:bg-emerald-500 hover:text-white'}`}
-                            title={item.is_active ? "Bloquear Usuário" : "Ativar Usuário"}
-                          >
-                            {item.is_active ? <UserX className="size-5" /> : <UserCheck className="size-5" />}
-                          </button>
+                          {activeTab === 'pending' ? (
+                            <button 
+                              onClick={() => toggleStatus(item.id, item.is_active)}
+                              className="px-4 py-2 bg-emerald-600 text-white rounded-xl text-xs font-black uppercase tracking-widest hover:brightness-110 transition-all shadow-lg shadow-emerald-600/10 flex items-center gap-1.5 active:scale-95"
+                              title="Aprovar Afiliado"
+                            >
+                              <UserCheck className="size-4" />
+                              Aprovar
+                            </button>
+                          ) : (
+                            <>
+                              <button 
+                                onClick={() => setEditingUser(item)}
+                                className="p-2.5 bg-white/5 hover:bg-primary/10 hover:text-primary text-slate-500 rounded-xl transition-all"
+                                title="Editar Dados"
+                              >
+                                <Edit className="size-5" />
+                              </button>
+                              <button 
+                                onClick={() => toggleStatus(item.id, item.is_active)}
+                                className={`p-2.5 rounded-xl transition-all ${item.is_active ? 'bg-red-500/5 text-red-500/50 hover:bg-red-500 hover:text-white' : 'bg-emerald-500/5 text-emerald-500/50 hover:bg-emerald-500 hover:text-white'}`}
+                                title={item.is_active ? "Bloquear Usuário" : "Ativar Usuário"}
+                              >
+                                {item.is_active ? <UserX className="size-5" /> : <UserCheck className="size-5" />}
+                              </button>
+                            </>
+                          )}
                           <button 
                             onClick={() => handleDelete(item.id)}
                             className="p-2.5 bg-red-500/5 text-red-500/50 hover:bg-red-600 hover:text-white rounded-xl transition-all"

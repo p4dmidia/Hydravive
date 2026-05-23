@@ -18,6 +18,7 @@ import MyOrders from './pages/MyOrders';
 import RegisterReferral from './pages/RegisterReferral';
 import Login from './pages/Login';
 import Register from './pages/Register';
+import PendingApproval from './pages/PendingApproval';
 import AdminLogin from './pages/admin/AdminLogin';
 import AdminDashboard from './pages/admin/AdminDashboard';
 import AdminAffiliates from './pages/admin/AdminAffiliates';
@@ -62,7 +63,7 @@ const AdminRoute = ({ children }: { children: React.ReactNode }) => {
 
 // Componente de Proteção Afiliado
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
-  const { user, loading } = useAuth();
+  const { user, profile, loading } = useAuth();
   
   if (loading) {
     return (
@@ -77,6 +78,11 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
 
   if (!user) {
     return <Navigate to="/login" replace />;
+  }
+
+  // Se o afiliado está inativo (aguardando aprovação do admin), redireciona
+  if (profile && !profile.is_active && profile.role === 'affiliate') {
+    return <Navigate to="/pending-approval" replace />;
   }
 
   return <>{children}</>;
@@ -113,6 +119,7 @@ function AppContent() {
           <Route path="/my-orders" element={<ProtectedRoute><MyOrders /></ProtectedRoute>} />
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
+          <Route path="/pending-approval" element={<PendingApproval />} />
           <Route path="/purifiers" element={<Shop />} />
           <Route path="/accessories" element={<Shop />} />
           <Route path="/support" element={<Home />} />

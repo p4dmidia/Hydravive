@@ -154,12 +154,29 @@ export default function RegisterReferral() {
                 </div>
               </div>
 
-              <div className="mt-auto p-4 bg-primary/10 border border-primary/20 rounded-2xl">
-                <div className="flex items-center gap-2 mb-2">
-                  <CheckCircle2 className="size-4 text-primary" />
-                  <span className="text-[10px] font-black uppercase tracking-widest text-primary">Seu Código Ativo</span>
+              <div className="mt-auto p-4 bg-primary/10 border border-primary/20 rounded-2xl flex flex-col gap-3">
+                <div>
+                  <div className="flex items-center gap-2 mb-2">
+                    <CheckCircle2 className="size-4 text-primary" />
+                    <span className="text-[10px] font-black uppercase tracking-widest text-primary">Seu Código Ativo</span>
+                  </div>
+                  <p className="text-lg font-black tracking-tight text-white uppercase">{profile?.referral_code || 'CARREGANDO...'}</p>
                 </div>
-                <p className="text-lg font-black tracking-tight text-white uppercase">{profile?.referral_code || 'CARREGANDO...'}</p>
+                <div className="border-t border-primary/20 pt-3">
+                  <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">Link de Cadastro Direto:</p>
+                  <button 
+                    type="button"
+                    onClick={() => {
+                      if (profile?.referral_code) {
+                        navigator.clipboard.writeText(`${window.location.origin}/register?ref=${profile.referral_code}`);
+                        toast.success('Link de cadastro copiado!');
+                      }
+                    }}
+                    className="w-full flex items-center justify-center gap-2 bg-primary text-white py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest hover:brightness-110 active:scale-95 transition-all shadow-md shadow-primary/20"
+                  >
+                    Copiar Link de Cadastro
+                  </button>
+                </div>
               </div>
             </div>
 

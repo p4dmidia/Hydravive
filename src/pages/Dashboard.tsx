@@ -541,17 +541,17 @@ export default function Dashboard() {
               <div className="flex flex-col gap-6 rounded-[2.5rem] border-2 border-emerald-500/20 bg-white p-8 shadow-xl shadow-emerald-500/5 relative overflow-hidden group">
                 <div className="flex flex-col gap-2 relative z-10">
                   <h3 className="text-[#111618] text-xl font-black uppercase tracking-tighter">Link de Cadastro (Rede)</h3>
-                  <p className="text-slate-500 text-sm font-medium">Mande direto para a tela de apresentação.</p>
+                  <p className="text-slate-500 text-sm font-medium">Mande direto para a tela de cadastro.</p>
                 </div>
                 <div className="flex flex-col gap-3 relative z-10">
                   <div className="flex items-center bg-slate-50 rounded-2xl border border-slate-200 px-6 h-14 shadow-inner overflow-hidden">
-                    <span className="text-emerald-500 text-[11px] font-black truncate tracking-tight">{window.location.origin}/affiliate?ref={stats?.referral_code || profile?.referral_code || '...'}</span>
+                    <span className="text-emerald-500 text-[11px] font-black truncate tracking-tight">{window.location.origin}/register?ref={stats?.referral_code || profile?.referral_code || '...'}</span>
                   </div>
                   <button 
                     onClick={() => {
                       const code = stats?.referral_code || profile?.referral_code;
                       if (code) {
-                        navigator.clipboard.writeText(`${window.location.origin}/affiliate?ref=${code}`);
+                        navigator.clipboard.writeText(`${window.location.origin}/register?ref=${code}`);
                         toast.success('Link de cadastro copiado!');
                       }
                     }}

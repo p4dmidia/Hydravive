@@ -157,16 +157,18 @@ export default function Register() {
         <div className="space-y-8">
           <div>
             <h1 className="text-5xl font-black text-slate-900 uppercase tracking-tighter leading-none mb-4">
-              Pronto para <br /><span className="text-primary">começar?</span>
+              Faça parte <br /><span className="text-primary">do time!</span>
             </h1>
-            <p className="text-slate-500 font-medium">Sua aprovação é imediata! Comece a lucrar agora mesmo.</p>
+            <p className="text-slate-500 font-medium leading-relaxed">
+              Junte-se ao projeto Hydravive e leve saúde e purificação de alta tecnologia para milhares de famílias, construindo um negócio lucrativo e recorrente. Preencha o cadastro abaixo para enviar seus dados para aprovação.
+            </p>
           </div>
 
           <div className="space-y-4">
             {[
-              { icon: CheckCircle2, text: 'Aprovação imediata e automática', color: 'text-primary' },
-              { icon: CheckCircle2, text: 'Acesso instantâneo ao treinamento', color: 'text-primary' },
-              { icon: CheckCircle2, text: 'Onboarding individual', color: 'text-primary' }
+              { icon: CheckCircle2, text: 'Cadastro por indicação de parceiro ativo', color: 'text-primary' },
+              { icon: CheckCircle2, text: 'Capacitação completa na Academia Hydravive', color: 'text-primary' },
+              { icon: CheckCircle2, text: 'Suporte direto do time de especialistas', color: 'text-primary' }
             ].map((item, idx) => (
               <div key={idx} className="flex items-center gap-3 bg-white p-4 rounded-2xl border border-slate-100 shadow-sm">
                 <item.icon className={`size-5 ${item.color}`} />
