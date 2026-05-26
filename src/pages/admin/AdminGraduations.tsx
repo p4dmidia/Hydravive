@@ -56,25 +56,29 @@ export default function AdminGraduations() {
   const saveChanges = async () => {
     setIsSaving(true);
     try {
-      const payload = graduations.map(g => ({
-        id: g.id,
-        name: g.name,
-        points_target: g.points_target,
-        network_depth: g.network_depth,
-        reward: g.reward,
-        level_order: g.level_order
-      }));
+      // Execute individual updates in parallel to avoid "cannot insert a non-DEFAULT value into column 'id'"
+      const updatePromises = graduations.map(g => 
+        supabase
+          .from('graduations')
+          .update({
+            name: g.name,
+            points_target: g.points_target,
+            network_depth: g.network_depth,
+            reward: g.reward,
+            level_order: g.level_order
+          })
+          .eq('id', g.id)
+      );
 
-      const { error } = await supabase
-        .from('graduations')
-        .upsert(payload);
-
-      if (error) throw error;
+      const results = await Promise.all(updatePromises);
+      
+      const firstError = results.find(r => r.error)?.error;
+      if (firstError) throw firstError;
 
       toast.success('Regras de graduação atualizadas!');
       fetchGraduations();
     } catch (error: any) {
-      toast.error('Erro ao salvar: ' + (error.message));
+      toast.error('Erro ao salvar: ' + (error.message || error));
     } finally {
       setIsSaving(false);
     }

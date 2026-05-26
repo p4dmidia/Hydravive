@@ -32,18 +32,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   // Função para buscar o perfil de forma isolada
-  const fetchProfile = async (userId?: string, retries = 3) => {
-    const id = userId || session?.user?.id || user?.id;
-    const email = user?.email || session?.user?.email;
+  const fetchProfile = async (userId?: string, retries = 3, currentSession?: Session | null) => {
+    const activeSession = currentSession !== undefined ? currentSession : session;
+    const id = userId || activeSession?.user?.id || user?.id;
     if (!id) return;
     
     try {
       console.log(`AuthContext: 🔍 Buscando perfil (Fura-Bloqueio)...`);
       
       const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/rest/v1/user_profiles?mocha_user_id=eq.${id}&select=*`, {
+        cache: 'no-store',
         headers: {
           'apikey': import.meta.env.VITE_SUPABASE_ANON_KEY,
-          'Authorization': `Bearer ${session?.access_token || import.meta.env.VITE_SUPABASE_ANON_KEY}`
+          'Authorization': `Bearer ${activeSession?.access_token || import.meta.env.VITE_SUPABASE_ANON_KEY}`
         }
       });
 
@@ -55,7 +56,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       } else if (retries > 0) {
         console.log(`AuthContext: ⚠️ Tentando novamente... (${retries})`);
         await new Promise(resolve => setTimeout(resolve, 1000));
-        await fetchProfile(id, retries - 1);
+        await fetchProfile(id, retries - 1, activeSession);
       }
     } catch (err) {
       console.error('AuthContext: Erro na busca nativa:', err);
@@ -66,23 +67,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     let mounted = true;
 
     async function initialize() {
-      // Simplesmente escuta as mudanças de auth
-      supabase.auth.onAuthStateChange(async (event, session) => {
-        console.log('Auth Event:', event, !!session);
-        setSession(session);
-        setUser(session?.user ?? null);
-        if (session?.user) {
-          fetchProfile(session.user.id);
-        }
-        setLoading(false);
-      });
-
       // Tenta pegar a sessão inicial sem travar nada
       const { data: { session: s } } = await supabase.auth.getSession();
       if (s && mounted) {
         setSession(s);
         setUser(s.user);
-        fetchProfile(s.user.id);
+        fetchProfile(s.user.id, 3, s);
       }
       setLoading(false);
     }
@@ -96,7 +86,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setUser(currentSession?.user ?? null);
         
         if (currentSession?.user) {
-          await fetchProfile(currentSession.user.id);
+          await fetchProfile(currentSession.user.id, 3, currentSession);
         } else {
           setProfile(null);
         }

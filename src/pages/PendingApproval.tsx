@@ -22,7 +22,7 @@ export default function PendingApproval() {
   const [sponsorName, setSponsorName] = useState<string>('Buscando...');
 
   useEffect(() => {
-    // Se o usuário de repente for ativado, manda para o dashboard
+    // Se o usuário de repente for ativado (ou já estiver ativado), manda para o escritório virtual/dashboard automaticamente
     if (profile && profile.is_active) {
       navigate('/dashboard', { replace: true });
     }
@@ -34,6 +34,35 @@ export default function PendingApproval() {
       setSponsorName('Nenhum (Indicação Direta)');
     }
   }, [profile]);
+
+  useEffect(() => {
+    if (!profile?.id) return;
+
+    // Subscrever em tempo real às alterações no perfil do usuário
+    const channel = supabase
+      .channel(`profile-status-${profile.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'user_profiles',
+          filter: `id=eq.${profile.id}`
+        },
+        (payload) => {
+          console.log('Realtime profile update received:', payload.new);
+          if (payload.new && payload.new.is_active === true) {
+            toast.success('Sua conta foi aprovada! Acessando o escritório virtual...', { duration: 4000 });
+            fetchProfile();
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [profile?.id]);
 
   const fetchSponsorName = async (sponsorId: number) => {
     try {

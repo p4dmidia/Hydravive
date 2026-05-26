@@ -59,22 +59,25 @@ export default function AdminProductPoints() {
   const saveChanges = async () => {
     setIsSaving(true);
     try {
-      const updates = products.map(p => ({
-        id: p.id,
-        points_generated: p.points_generated,
-        updated_at: new Date().toISOString()
-      }));
+      // Execute individual updates in parallel to avoid "cannot insert a non-DEFAULT value into column 'id'"
+      const updatePromises = products.map(p => 
+        supabase
+          .from('products')
+          .update({
+            points_generated: p.points_generated,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', p.id)
+      );
 
-      // We use upsert for multiple updates if we have the IDs
-      const { error } = await supabase
-        .from('products')
-        .upsert(updates);
-
-      if (error) throw error;
+      const results = await Promise.all(updatePromises);
+      
+      const firstError = results.find(r => r.error)?.error;
+      if (firstError) throw firstError;
 
       toast.success('Pontuações atualizadas com sucesso!');
     } catch (error: any) {
-      toast.error('Erro ao salvar: ' + (error.message));
+      toast.error('Erro ao salvar: ' + (error.message || error));
     } finally {
       setIsSaving(false);
     }

@@ -15,11 +15,15 @@ import {
   X,
   Save,
   CreditCard,
-  Trash2
+  Trash2,
+  Workflow,
+  ChevronLeft,
+  ChevronRight
 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import AdminLayout from '../../components/admin/AdminLayout';
 import toast from 'react-hot-toast';
+import Tree from 'react-d3-tree';
 
 interface Affiliate {
   id: number;
@@ -32,12 +36,28 @@ interface Affiliate {
   phone?: string;
   cpf?: string;
   pix_key?: string;
+  sponsor_id?: number | null;
+  referral_code?: string;
   activation_status?: {
     is_active_this_month: boolean;
     has_sale: boolean;
     has_referral: boolean;
   };
 }
+
+const wouldCreateCycle = (userId: number, potentialSponsorId: number, affiliatesList: Affiliate[]) => {
+  if (userId === potentialSponsorId) return true;
+  let currentId: number | null = potentialSponsorId;
+  const visited = new Set<number>();
+  while (currentId) {
+    if (currentId === userId) return true;
+    if (visited.has(currentId)) return true;
+    visited.add(currentId);
+    const profile = affiliatesList.find(a => a.id === currentId);
+    currentId = profile?.sponsor_id || null;
+  }
+  return false;
+};
 
 export default function AdminAffiliates() {
   const [affiliates, setAffiliates] = useState<Affiliate[]>([]);
@@ -48,6 +68,21 @@ export default function AdminAffiliates() {
   const [isSaving, setIsSaving] = useState(false);
   const [activeTab, setActiveTab] = useState<'all' | 'pending'>('pending');
   const [orders, setOrders] = useState<any[]>([]);
+  const [viewingNetworkUser, setViewingNetworkUser] = useState<Affiliate | null>(null);
+  const [networkTreeData, setNetworkTreeData] = useState<any | null>(null);
+  const [sponsorSearchQuery, setSponsorSearchQuery] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, activeTab]);
+
+  useEffect(() => {
+    if (!editingUser) {
+      setSponsorSearchQuery('');
+    }
+  }, [editingUser]);
 
   useEffect(() => {
     fetchAffiliates();
@@ -111,6 +146,7 @@ export default function AdminAffiliates() {
           pix_key: editingUser.pix_key,
           role: editingUser.role,
           is_active: editingUser.is_active,
+          sponsor_id: editingUser.sponsor_id,
           updated_at: new Date().toISOString()
         })
         .eq('id', editingUser.id);
@@ -169,6 +205,49 @@ export default function AdminAffiliates() {
     });
   };
 
+  const handleViewNetwork = (user: Affiliate) => {
+    const profileMap = new Map();
+    for (const p of affiliates) {
+      const sId = String(p.id);
+      const name = p.full_name || p.email?.split('@')[0] || 'Afiliado';
+      profileMap.set(sId, {
+        id: sId,
+        name: name,
+        username: name.toLowerCase().replace(/\s/g, ''),
+        avatar: `https://ui-avatars.com/api/?name=${name}&background=random`,
+        status: p.is_active ? 'active' : 'inactive',
+        level: 0,
+        phone: p.phone || '---',
+        email: p.email || '---',
+        children: []
+      });
+    }
+
+    for (const p of affiliates) {
+      const sId = String(p.id);
+      const sponsorId = p.sponsor_id ? String(p.sponsor_id) : null;
+      if (sponsorId && profileMap.has(sponsorId)) {
+        const childNode = profileMap.get(sId);
+        if (childNode && sId !== sponsorId) {
+          profileMap.get(sponsorId).children.push(childNode);
+        }
+      }
+    }
+
+    const rootNode = profileMap.get(String(user.id));
+    if (rootNode) {
+      const setL = (n: any, l: number) => {
+        n.level = l;
+        n.children?.forEach((c: any) => setL(c, l + 1));
+      };
+      setL(rootNode, 1);
+      setNetworkTreeData(rootNode);
+      setViewingNetworkUser(user);
+    } else {
+      toast.error('Não foi possível montar a árvore de rede.');
+    }
+  };
+
   const filteredAffiliates = affiliates.filter(a => 
     (a.full_name?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
     (a.email?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
@@ -178,6 +257,11 @@ export default function AdminAffiliates() {
   const affiliatesToDisplay = activeTab === 'pending'
     ? filteredAffiliates.filter(a => !a.is_active && a.role === 'affiliate')
     : filteredAffiliates;
+
+  const totalItems = affiliatesToDisplay.length;
+  const totalPages = Math.ceil(totalItems / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const paginatedAffiliates = affiliatesToDisplay.slice(startIndex, startIndex + itemsPerPage);
 
   return (
     <AdminLayout>
@@ -256,7 +340,7 @@ export default function AdminAffiliates() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-white/5">
-                  {affiliatesToDisplay.map((item) => (
+                  {paginatedAffiliates.map((item) => (
                     <tr key={item.id} className="hover:bg-white/[0.02] transition-colors group">
                       <td className="px-8 py-6">
                         <div className="flex items-center gap-4">
@@ -354,16 +438,24 @@ export default function AdminAffiliates() {
                       <td className="px-8 py-6 text-right">
                         <div className="flex items-center justify-end gap-2">
                           {activeTab === 'pending' ? (
-                            <button 
-                              onClick={() => toggleStatus(item.id, item.is_active)}
-                              className="px-4 py-2 bg-emerald-600 text-white rounded-xl text-xs font-black uppercase tracking-widest hover:brightness-110 transition-all shadow-lg shadow-emerald-600/10 flex items-center gap-1.5 active:scale-95"
-                              title="Aprovar Afiliado"
-                            >
-                              <UserCheck className="size-4" />
-                              Aprovar
-                            </button>
-                          ) : (
                             <>
+                              <button 
+                                onClick={() => toggleStatus(item.id, item.is_active)}
+                                className="px-4 py-2 bg-emerald-600 text-white rounded-xl text-xs font-black uppercase tracking-widest hover:brightness-110 transition-all shadow-lg shadow-emerald-600/10 flex items-center gap-1.5 active:scale-95"
+                                title="Aprovar Afiliado"
+                              >
+                                <UserCheck className="size-4" />
+                                Aprovar
+                              </button>
+                              {item.role === 'affiliate' && (
+                                <button 
+                                  onClick={() => handleViewNetwork(item)}
+                                  className="p-2.5 bg-white/5 hover:bg-emerald-500/10 hover:text-emerald-500 text-slate-500 rounded-xl transition-all"
+                                  title="Visualizar Rede"
+                                >
+                                  <Workflow className="size-5" />
+                                </button>
+                              )}
                               <button 
                                 onClick={() => setEditingUser(item)}
                                 className="p-2.5 bg-white/5 hover:bg-primary/10 hover:text-primary text-slate-500 rounded-xl transition-all"
@@ -371,13 +463,32 @@ export default function AdminAffiliates() {
                               >
                                 <Edit className="size-5" />
                               </button>
-                              <button 
-                                onClick={() => toggleStatus(item.id, item.is_active)}
-                                className={`p-2.5 rounded-xl transition-all ${item.is_active ? 'bg-red-500/5 text-red-500/50 hover:bg-red-500 hover:text-white' : 'bg-emerald-500/5 text-emerald-500/50 hover:bg-emerald-500 hover:text-white'}`}
-                                title={item.is_active ? "Bloquear Usuário" : "Ativar Usuário"}
-                              >
-                                {item.is_active ? <UserX className="size-5" /> : <UserCheck className="size-5" />}
-                              </button>
+                            </>
+                          ) : (
+                            <>
+                               {item.role === 'affiliate' && (
+                                 <button 
+                                   onClick={() => handleViewNetwork(item)}
+                                   className="p-2.5 bg-white/5 hover:bg-emerald-500/10 hover:text-emerald-500 text-slate-500 rounded-xl transition-all"
+                                   title="Visualizar Rede"
+                                 >
+                                   <Workflow className="size-5" />
+                                 </button>
+                               )}
+                               <button 
+                                 onClick={() => setEditingUser(item)}
+                                 className="p-2.5 bg-white/5 hover:bg-primary/10 hover:text-primary text-slate-500 rounded-xl transition-all"
+                                 title="Editar Dados"
+                               >
+                                 <Edit className="size-5" />
+                               </button>
+                               <button 
+                                 onClick={() => toggleStatus(item.id, item.is_active)}
+                                 className={`p-2.5 rounded-xl transition-all ${item.is_active ? 'bg-red-500/5 text-red-500/50 hover:bg-red-500 hover:text-white' : 'bg-emerald-500/5 text-emerald-500/50 hover:bg-emerald-500 hover:text-white'}`}
+                                 title={item.is_active ? "Bloquear Usuário" : "Ativar Usuário"}
+                               >
+                                 {item.is_active ? <UserX className="size-5" /> : <UserCheck className="size-5" />}
+                               </button>
                             </>
                           )}
                           <button 
@@ -393,6 +504,62 @@ export default function AdminAffiliates() {
                   ))}
                 </tbody>
               </table>
+              
+              {/* Controles de Paginação */}
+              {totalPages > 1 && (
+                <div className="px-8 py-6 bg-white/[0.02] border-t border-white/5 flex flex-col sm:flex-row items-center justify-between gap-4">
+                  <p className="text-xs text-slate-500 font-bold uppercase tracking-wider">
+                    Exibindo <span className="text-white">{startIndex + 1}</span> a <span className="text-white">{Math.min(startIndex + itemsPerPage, totalItems)}</span> de <span className="text-white">{totalItems}</span> usuários
+                  </p>
+                  
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                      disabled={currentPage === 1}
+                      className="p-2 bg-white/5 hover:bg-white/10 disabled:opacity-30 disabled:hover:bg-white/5 text-white rounded-xl transition-all"
+                      title="Página Anterior"
+                    >
+                      <ChevronLeft className="size-5" />
+                    </button>
+                    
+                    {(() => {
+                      const pages = [];
+                      const maxVisible = 5;
+                      let start = Math.max(1, currentPage - 2);
+                      let end = Math.min(totalPages, start + maxVisible - 1);
+                      if (end - start < maxVisible - 1) {
+                        start = Math.max(1, end - maxVisible + 1);
+                      }
+                      
+                      for (let i = start; i <= end; i++) {
+                        pages.push(
+                          <button
+                            key={i}
+                            onClick={() => setCurrentPage(i)}
+                            className={`size-10 rounded-xl text-xs font-black transition-all ${
+                              currentPage === i
+                                ? 'bg-primary text-white shadow-lg shadow-primary/20'
+                                : 'bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white'
+                            }`}
+                          >
+                            {i}
+                          </button>
+                        );
+                      }
+                      return pages;
+                    })()}
+                    
+                    <button
+                      onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                      disabled={currentPage === totalPages}
+                      className="p-2 bg-white/5 hover:bg-white/10 disabled:opacity-30 disabled:hover:bg-white/5 text-white rounded-xl transition-all"
+                      title="Próxima Página"
+                    >
+                      <ChevronRight className="size-5" />
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -487,6 +654,126 @@ export default function AdminAffiliates() {
                     <option value="false">Bloqueada / Inativa</option>
                   </select>
                 </div>
+                <div className="space-y-2 col-span-1 md:col-span-2">
+                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Patrocinador</label>
+                  {editingUser.sponsor_id && affiliates.some(a => a.id === editingUser.sponsor_id) ? (
+                    (() => {
+                      const currentSponsor = affiliates.find(a => a.id === editingUser.sponsor_id)!;
+                      return (
+                        <div className="bg-[#0F172A] border border-white/5 rounded-2xl p-4 flex items-center justify-between">
+                          <div>
+                            <p className="text-white font-bold text-sm">
+                              {currentSponsor.full_name || 'Sem Nome'} (ID: {currentSponsor.id})
+                            </p>
+                            <p className="text-slate-400 text-xs mt-1">
+                              {currentSponsor.email} {currentSponsor.phone ? `| ${currentSponsor.phone}` : ''}
+                            </p>
+                            <p className="text-slate-500 text-[10px] font-bold mt-1">
+                              {currentSponsor.cpf ? `CPF: ${currentSponsor.cpf}` : 'Sem CPF informado'}
+                            </p>
+                            {currentSponsor.referral_code && (
+                              <span className="mt-2 inline-block bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-wider">
+                                Código: {currentSponsor.referral_code}
+                              </span>
+                            )}
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => setEditingUser({ ...editingUser, sponsor_id: null })}
+                            className="px-4 py-2 bg-red-500/10 hover:bg-red-500 hover:text-white text-red-500 rounded-xl text-xs font-black uppercase tracking-widest transition-all"
+                          >
+                            Remover
+                          </button>
+                        </div>
+                      );
+                    })()
+                  ) : (
+                    <div className="space-y-3">
+                      <div className="relative">
+                        <input
+                          type="text"
+                          placeholder="Pesquisar por nome, ID, CPF, e-mail ou código de afiliação..."
+                          value={sponsorSearchQuery}
+                          onChange={(e) => setSponsorSearchQuery(e.target.value)}
+                          className="w-full bg-[#0F172A] border border-white/5 rounded-xl px-4 py-3 text-white focus:ring-2 focus:ring-primary/20 outline-none transition-all font-bold placeholder:text-slate-600 text-sm"
+                        />
+                        {sponsorSearchQuery && (
+                          <button
+                            type="button"
+                            onClick={() => setSponsorSearchQuery('')}
+                            className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white text-xs font-bold"
+                          >
+                            Limpar
+                          </button>
+                        )}
+                      </div>
+
+                      {sponsorSearchQuery.trim() !== '' && (
+                        <div className="bg-[#0F172A] border border-white/5 rounded-2xl overflow-hidden divide-y divide-white/5 max-h-60 overflow-y-auto">
+                          {(() => {
+                            const query = sponsorSearchQuery.toLowerCase().trim();
+                            const matches = affiliates.filter(a => {
+                              if (a.id === editingUser.id) return false;
+                              if (a.role !== 'affiliate' && a.role !== 'admin') return false;
+                              
+                              return (
+                                String(a.id).includes(query) ||
+                                (a.full_name || '').toLowerCase().includes(query) ||
+                                (a.email || '').toLowerCase().includes(query) ||
+                                (a.cpf || '').includes(query) ||
+                                (a.referral_code || '').toLowerCase().includes(query)
+                              );
+                            });
+
+                            if (matches.length === 0) {
+                              return (
+                                <p className="p-4 text-xs font-bold text-slate-500 text-center uppercase tracking-wider">
+                                  Nenhum patrocinador encontrado
+                                </p>
+                              );
+                            }
+
+                            return matches.slice(0, 8).map(a => (
+                              <button
+                                key={a.id}
+                                type="button"
+                                onClick={() => {
+                                  if (wouldCreateCycle(editingUser.id, a.id, affiliates)) {
+                                    toast.error('Não é possível selecionar este patrocinador pois criaria uma referência circular (loop).');
+                                    return;
+                                  }
+                                  setEditingUser({ ...editingUser, sponsor_id: a.id });
+                                  setSponsorSearchQuery('');
+                                }}
+                                className="w-full text-left p-4 hover:bg-white/[0.03] transition-colors flex items-center justify-between"
+                              >
+                                <div>
+                                  <p className="text-white font-bold text-xs uppercase">
+                                    {a.full_name || 'Sem Nome'} (ID: {a.id})
+                                  </p>
+                                  <p className="text-slate-500 text-[10px] font-semibold mt-0.5">
+                                    {a.email} {a.cpf ? `| CPF: ${a.cpf}` : ''}
+                                  </p>
+                                </div>
+                                {a.referral_code && (
+                                  <span className="bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-wider">
+                                    {a.referral_code}
+                                  </span>
+                                )}
+                              </button>
+                            ));
+                          })()}
+                        </div>
+                      )}
+                      
+                      {sponsorSearchQuery.trim() === '' && (
+                        <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest ml-1">
+                          Sem Patrocinador (Indicação Direta). Digite acima para buscar e definir um patrocinador.
+                        </p>
+                      )}
+                    </div>
+                  )}
+                </div>
               </div>
 
               <div className="p-8 bg-white/5 border-t border-white/5 flex gap-4">
@@ -503,6 +790,75 @@ export default function AdminAffiliates() {
                 >
                   {isSaving ? <Loader2 className="size-5 animate-spin" /> : <Save className="size-5" />}
                   Salvar Alterações
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+        {/* Modal de Rede de Indicações */}
+        {viewingNetworkUser && networkTreeData && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-[#0F172A]/90 backdrop-blur-md">
+            <div className="bg-[#1E293B] border border-white/10 rounded-[2.5rem] w-full max-w-5xl h-[85vh] shadow-2xl overflow-hidden flex flex-col animate-in fade-in zoom-in duration-200">
+              <div className="p-8 border-b border-white/5 flex items-center justify-between bg-white/5">
+                <div className="flex items-center gap-4">
+                  <div className="size-12 rounded-2xl bg-emerald-500/20 flex items-center justify-center text-emerald-500">
+                    <Workflow className="size-6" />
+                  </div>
+                  <div>
+                    <h3 className="text-xl font-black text-white uppercase tracking-tight">Rede de Indicações</h3>
+                    <p className="text-slate-500 text-xs font-bold uppercase tracking-widest">
+                      Patrocinador Raiz: {viewingNetworkUser.full_name} ({viewingNetworkUser.email})
+                    </p>
+                  </div>
+                </div>
+                <button 
+                  onClick={() => { setViewingNetworkUser(null); setNetworkTreeData(null); }} 
+                  className="p-2 hover:bg-white/5 rounded-xl transition-all"
+                >
+                  <X className="size-6 text-slate-500" />
+                </button>
+              </div>
+
+              <div className="flex-1 bg-[#0F172A]/50 relative overflow-hidden">
+                <div className="absolute inset-0">
+                  <Tree
+                    data={networkTreeData}
+                    orientation="vertical"
+                    pathFunc="step"
+                    enableLegacyTransitions={false}
+                    transitionDuration={0}
+                    translate={{ x: 450, y: 80 }}
+                    nodeSize={{ x: 260, y: 160 }}
+                    separation={{ siblings: 1.3, nonSiblings: 1.8 }}
+                    renderCustomNodeElement={(rd3tProps) => (
+                      <foreignObject width="240" height="100" x="-120" y="-50">
+                        <div className="bg-slate-900 rounded-2xl p-4 shadow-xl border border-white/5 flex items-center gap-3 w-full h-full">
+                          <div className="relative">
+                            <img 
+                              src={rd3tProps.nodeDatum.avatar as string} 
+                              className="size-10 rounded-xl object-cover border border-white/10"
+                              alt=""
+                            />
+                            <div className={`absolute -bottom-0.5 -right-0.5 size-3 rounded-full border border-slate-950 ${rd3tProps.nodeDatum.status === 'active' ? 'bg-emerald-500' : 'bg-slate-500'}`} />
+                          </div>
+                          <div className="flex-1 min-w-0 text-left">
+                            <h4 className="text-white font-bold text-xs truncate uppercase tracking-tight">{rd3tProps.nodeDatum.name}</h4>
+                            <p className="text-emerald-400 font-bold text-[9px] uppercase tracking-wider">Nível {rd3tProps.nodeDatum.level}</p>
+                            <p className="text-slate-500 text-[8px] truncate">{rd3tProps.nodeDatum.email}</p>
+                          </div>
+                        </div>
+                      </foreignObject>
+                    )}
+                  />
+                </div>
+              </div>
+
+              <div className="p-6 bg-white/5 border-t border-white/5 flex justify-end">
+                <button 
+                  onClick={() => { setViewingNetworkUser(null); setNetworkTreeData(null); }}
+                  className="bg-white/5 hover:bg-white/10 text-white px-8 py-3 rounded-xl font-bold transition-all"
+                >
+                  Fechar Visualização
                 </button>
               </div>
             </div>

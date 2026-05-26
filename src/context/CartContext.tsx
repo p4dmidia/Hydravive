@@ -44,8 +44,8 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   const addToCart = (product: any, quantity: number = 1) => {
     const { usePoints, affiliate_price, price, points_cost } = product;
     
-    // Se o usuário estiver logado e for um afiliado, usa o preço de afiliado (se existir)
-    const isAffiliate = profile && profile.role === 'affiliate';
+    // Se o usuário estiver logado, for um afiliado e estiver ativo/aprovado, usa o preço de afiliado (se existir)
+    const isAffiliate = profile && profile.role === 'affiliate' && profile.is_active === true;
     const finalPrice = isAffiliate && affiliate_price > 0 ? affiliate_price : price;
 
     setCart(prevCart => {
