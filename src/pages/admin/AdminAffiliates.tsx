@@ -18,7 +18,9 @@ import {
   Trash2,
   Workflow,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  Eye,
+  EyeOff
 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import AdminLayout from '../../components/admin/AdminLayout';
@@ -73,6 +75,9 @@ export default function AdminAffiliates() {
   const [sponsorSearchQuery, setSponsorSearchQuery] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
+  const [newPassword, setNewPassword] = useState('');
+  const [isUpdatingPassword, setIsUpdatingPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
 
   useEffect(() => {
     setCurrentPage(1);
@@ -81,6 +86,8 @@ export default function AdminAffiliates() {
   useEffect(() => {
     if (!editingUser) {
       setSponsorSearchQuery('');
+      setNewPassword('');
+      setShowNewPassword(false);
     }
   }, [editingUser]);
 
@@ -160,6 +167,32 @@ export default function AdminAffiliates() {
       toast.error('Erro ao salvar alterações');
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  const handleUpdatePassword = async () => {
+    if (!editingUser || !newPassword) return;
+    if (newPassword.length < 6) {
+      toast.error('A senha deve ter pelo menos 6 caracteres.');
+      return;
+    }
+    
+    setIsUpdatingPassword(true);
+    try {
+      const { error } = await supabase.rpc('admin_change_user_password', {
+        target_mocha_user_id: editingUser.mocha_user_id,
+        new_password: newPassword
+      });
+      
+      if (error) throw error;
+      
+      toast.success('Senha alterada com sucesso!');
+      setNewPassword('');
+    } catch (error: any) {
+      console.error('Erro ao alterar senha:', error);
+      toast.error(error.message || 'Erro ao alterar senha');
+    } finally {
+      setIsUpdatingPassword(false);
     }
   };
 
@@ -653,6 +686,45 @@ export default function AdminAffiliates() {
                     <option value="true">Ativa</option>
                     <option value="false">Bloqueada / Inativa</option>
                   </select>
+                </div>
+                <div className="space-y-2 col-span-1 md:col-span-2 border-t border-white/5 pt-6">
+                  <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Alterar Senha do Usuário</label>
+                  <div className="flex flex-col sm:flex-row gap-4 items-stretch sm:items-end">
+                    <div className="flex-1 space-y-2 relative">
+                      <input 
+                        type={showNewPassword ? 'text' : 'password'} 
+                        placeholder="Nova senha (mínimo 6 caracteres)..."
+                        value={newPassword}
+                        onChange={(e) => setNewPassword(e.target.value)}
+                        className="w-full bg-[#0F172A] border border-white/5 rounded-xl pl-4 pr-12 py-3 text-white focus:ring-2 focus:ring-primary/20 outline-none transition-all font-bold placeholder:text-slate-600 text-sm"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowNewPassword(!showNewPassword)}
+                        className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-500 hover:text-slate-300 transition-colors"
+                      >
+                        {showNewPassword ? <EyeOff className="size-5" /> : <Eye className="size-5" />}
+                      </button>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={handleUpdatePassword}
+                      disabled={isUpdatingPassword || !newPassword || newPassword.length < 6}
+                      className="px-6 py-3.5 bg-primary hover:brightness-110 disabled:opacity-50 text-white rounded-xl text-xs font-black uppercase tracking-widest transition-all active:scale-95 whitespace-nowrap flex items-center justify-center gap-2"
+                    >
+                      {isUpdatingPassword ? (
+                        <>
+                          <Loader2 className="size-4 animate-spin" />
+                          Alterando...
+                        </>
+                      ) : (
+                        'Alterar Senha'
+                      )}
+                    </button>
+                  </div>
+                  {newPassword && newPassword.length < 6 && (
+                    <p className="text-red-400 text-[10px] font-bold mt-1 uppercase tracking-wider ml-1">A senha deve ter pelo menos 6 caracteres</p>
+                  )}
                 </div>
                 <div className="space-y-2 col-span-1 md:col-span-2">
                   <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Patrocinador</label>
