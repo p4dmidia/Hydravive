@@ -101,7 +101,9 @@ export default function ProductDetail() {
     if (!authLoading) {
       fetchProduct();
     }
-    const ref = localStorage.getItem('hydravive_ref');
+    const params = new URLSearchParams(window.location.search);
+    const urlRef = params.get('ref');
+    const ref = urlRef || localStorage.getItem('hydravive_ref');
     setHasReferral(!!ref);
   }, [id, authLoading]);
 
@@ -243,7 +245,7 @@ export default function ProductDetail() {
                 {product.name}
               </h1>
               
-              {(isUserApproved || isAffiliation) ? (
+              {(isUserApproved || isAffiliation || hasReferral) ? (
                 profile?.role === 'affiliate' && profile?.is_active === true && product.affiliate_price > 0 ? (
                   <div className="mt-6 flex flex-col gap-0.5">
                     <p className="text-sm font-bold text-slate-400 line-through">
@@ -299,7 +301,7 @@ export default function ProductDetail() {
             </div>
 
             <div className="space-y-6">
-              {(isUserApproved || isAffiliation) ? (
+              {(isUserApproved || isAffiliation || hasReferral) ? (
                 <div className="flex items-center gap-6">
                   <div className="flex items-center bg-white border border-slate-200 rounded-2xl p-2 shadow-sm">
                     <button onClick={() => setQuantity(Math.max(1, quantity - 1))} disabled={isOutOfStock} className="size-10 flex items-center justify-center text-slate-400 hover:text-primary transition-colors disabled:opacity-30"><Minus className="size-4" /></button>

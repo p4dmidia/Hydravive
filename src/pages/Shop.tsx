@@ -73,8 +73,10 @@ export default function Shop() {
 
   useEffect(() => {
     fetchData();
-    // Verifica indicação
-    const ref = localStorage.getItem('hydravive_ref');
+    // Verifica indicação no localStorage ou diretamente na URL
+    const params = new URLSearchParams(window.location.search);
+    const urlRef = params.get('ref');
+    const ref = urlRef || localStorage.getItem('hydravive_ref');
     setHasReferral(!!ref);
   }, []);
 
@@ -290,7 +292,7 @@ export default function Shop() {
                         </div>
 
                         <div className="pt-4 flex items-center justify-between border-t border-slate-50">
-                          {isUserApproved || isAffiliationProduct(product) ? (
+                          {isUserApproved || isAffiliationProduct(product) || hasReferral ? (
                             <>
                               <div>
                                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Preço</p>

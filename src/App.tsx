@@ -92,6 +92,7 @@ function AppContent() {
   const location = useLocation();
   const isDashboard = location.pathname.startsWith('/dashboard');
   const isAdmin = location.pathname.startsWith('/admin');
+  const isRegister = location.pathname === '/register';
 
   // Captura de Indicação (Referral Tracking)
   React.useEffect(() => {
@@ -106,7 +107,7 @@ function AppContent() {
   return (
     <div className="flex flex-col min-h-screen">
       <Toaster position="top-right" />
-      {(!isDashboard && !isAdmin) && <Navbar />}
+      {(!isDashboard && !isAdmin && !isRegister) && <Navbar />}
       <div className="flex-1">
         <Routes>
           {/* Public Routes */}
@@ -149,7 +150,7 @@ function AppContent() {
           <Route path="/dashboard/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
         </Routes>
       </div>
-      {(!isDashboard && !isAdmin) && <Footer />}
+      {(!isDashboard && !isAdmin && !isRegister) && <Footer />}
     </div>
   );
 }

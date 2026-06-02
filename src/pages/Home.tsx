@@ -129,15 +129,13 @@ export default function Home() {
                   <ArrowRight className="size-5" />
                 </div>
               </div>
-              <div className="flex flex-col gap-1 px-2">
-                <div className="flex justify-between items-start">
-                  <div>
-                    <h3 className="font-bold text-lg line-clamp-1">{product.name}</h3>
-                    <p className="text-sm text-slate-500 line-clamp-1">{product.description}</p>
-                  </div>
-                  <span className="font-black text-primary whitespace-nowrap">
-                    R$ {Number(product.price).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                  </span>
+              <div className="flex flex-col gap-3 px-2">
+                <div>
+                  <h3 className="font-bold text-lg line-clamp-1 text-slate-900">{product.name}</h3>
+                  <p className="text-sm text-slate-500 line-clamp-2 mt-1">{product.description}</p>
+                </div>
+                <div className="w-full bg-primary/10 text-primary font-black uppercase tracking-widest text-[10px] py-3 rounded-xl flex items-center justify-center gap-2 group-hover:bg-primary group-hover:text-white transition-all">
+                  Saiba Mais <ArrowRight className="size-4" />
                 </div>
               </div>
             </Link>
