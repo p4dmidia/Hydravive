@@ -1,12 +1,68 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowRight, Droplets, Shield, Zap, CheckCircle2, Leaf, Heart, Plus, Minus, HelpCircle } from 'lucide-react';
+import { ArrowRight, Droplets, Shield, Zap, CheckCircle2, Leaf, Heart, Plus, Minus, HelpCircle, Mail, Phone, User, Send, MessageSquare } from 'lucide-react';
 import { supabase } from '../lib/supabase';
+import { toast } from 'react-hot-toast';
 
 export default function Home() {
   const [openFaq, setOpenFaq] = useState<number | null>(null);
   const [products, setProducts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+
+  const [contactForm, setContactForm] = useState({
+    name: '',
+    email: '',
+    phone: '',
+    department: 'Comercial',
+    subject: '',
+    message: ''
+  });
+  const [submittingContact, setSubmittingContact] = useState(false);
+
+  const handleContactSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSubmittingContact(true);
+
+    try {
+      const response = await fetch("https://formsubmit.co/ajax/hydravive@icloud.com", {
+        method: "POST",
+        headers: { 
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        },
+        body: JSON.stringify({
+          Nome: contactForm.name,
+          Email: contactForm.email,
+          Telefone: contactForm.phone,
+          Departamento: contactForm.department,
+          Assunto: contactForm.subject,
+          Mensagem: contactForm.message,
+          _subject: `Novo contato pelo site: ${contactForm.subject || 'Geral'}`
+        })
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        toast.success("Mensagem enviada com sucesso!");
+        setContactForm({
+          name: '',
+          email: '',
+          phone: '',
+          department: 'Comercial',
+          subject: '',
+          message: ''
+        });
+      } else {
+        throw new Error(data.message || "Erro ao enviar mensagem.");
+      }
+    } catch (error) {
+      console.error(error);
+      toast.error("Ocorreu um erro ao enviar sua mensagem. Tente novamente.");
+    } finally {
+      setSubmittingContact(false);
+    }
+  };
 
   useEffect(() => {
     const fetchFeaturedProducts = async () => {
@@ -45,6 +101,34 @@ export default function Home() {
     {
       question: "Os produtos possuem garantia?",
       answer: "Sim. Todos os produtos que a HYDRAVIVE representa, possuem garantia de fábrica contra defeitos de fabricação. Nosso compromisso é com a sua total satisfação e confiança em nossa tecnologia."
+    },
+    {
+      question: "O que a Squeeze Hydravive faz?",
+      answer: "A Squeeze Hydravive transforma a água comum em água alcalina, ajudando a equilibrar o pH do corpo e proporcionando mais hidratação e bem-estar."
+    },
+    {
+      question: "Como a Squeeze alcaliniza a água?",
+      answer: "Ela contém um filtro com minerais especiais que elevam o pH da água, tornando-a mais leve e benéfica para a saúde."
+    },
+    {
+      question: "Quanto tempo leva para a água ficar alcalina?",
+      answer: "Basta encher a garrafa e aguardar de 2 a 5 minutos para obter água alcalina de qualidade."
+    },
+    {
+      question: "A Squeeze altera o sabor da água?",
+      answer: "Sim! Muitas pessoas relatam que a água fica mais leve e agradável de beber."
+    },
+    {
+      question: "Quais os benefícios da água alcalina?",
+      answer: "A água alcalina pode ajudar na hidratação, na eliminação de toxinas, no equilíbrio do pH do organismo e até na melhora da digestão e disposição."
+    },
+    {
+      question: "Quem pode usar a Squeeze Hydravive?",
+      answer: "Qualquer pessoa pode se beneficiar da água alcalina, desde crianças até idosos, incluindo atletas e pessoas que buscam mais saúde e bem-estar."
+    },
+    {
+      question: "Grávidas e crianças podem consumir água alcalina?",
+      answer: "Sim, mas recomendamos sempre consultar um profissional de saúde para orientações específicas."
     }
   ];
   return (
@@ -181,7 +265,7 @@ export default function Home() {
       </section>
 
       {/* FAQ Section */}
-      <section className="py-16 md:py-24 bg-slate-900 text-white">
+      <section id="faq" className="py-16 md:py-24 bg-slate-900 text-white">
         <div className="max-w-[800px] mx-auto px-6">
           <div className="text-center mb-16">
             <h2 className="text-4xl font-black mb-4 flex items-center justify-center gap-3">
@@ -252,6 +336,174 @@ export default function Home() {
             </div>
             <h3 className="text-xl font-bold">Garantia Vitalícia</h3>
             <p className="text-slate-500 text-sm">Apoiamos nossa tecnologia com uma garantia vitalícia abrangente.</p>
+          </div>
+        </div>
+      </section>
+
+      {/* Fale Conosco */}
+      <section id="contato" className="py-20 lg:py-28 bg-white border-t border-slate-100 relative overflow-hidden">
+        <div className="absolute top-0 left-0 w-1/3 h-full bg-primary/5 -skew-x-12 -translate-x-1/2"></div>
+        <div className="max-w-[1200px] mx-auto px-6 relative z-10">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 lg:gap-16 items-start">
+            
+            {/* Left Info Column */}
+            <div className="lg:col-span-5 space-y-8">
+              <div className="space-y-4">
+                <span className="text-primary font-black uppercase tracking-widest text-xs">Atendimento</span>
+                <h2 className="text-3xl lg:text-5xl font-black text-slate-900 uppercase tracking-tight">Fale Conosco</h2>
+                <p className="text-slate-500 font-medium text-base leading-relaxed">
+                  Tem alguma dúvida, sugestão ou precisa de suporte? Entre em contato conosco preenchendo o formulário ao lado. Nosso time retornará o mais breve possível.
+                </p>
+              </div>
+
+              <div className="space-y-6">
+                <div className="flex items-center gap-4 p-6 bg-slate-50 border border-slate-100 rounded-3xl">
+                  <div className="size-12 rounded-2xl bg-primary/10 text-primary flex items-center justify-center">
+                    <Mail className="size-6" />
+                  </div>
+                  <div>
+                    <span className="block text-[10px] font-black uppercase tracking-widest text-slate-400">E-mail</span>
+                    <span className="block text-sm font-bold text-slate-900">hydravive@icloud.com</span>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-4 p-6 bg-slate-50 border border-slate-100 rounded-3xl">
+                  <div className="size-12 rounded-2xl bg-primary/10 text-primary flex items-center justify-center">
+                    <Phone className="size-6" />
+                  </div>
+                  <div>
+                    <span className="block text-[10px] font-black uppercase tracking-widest text-slate-400">WhatsApp</span>
+                    <span className="block text-sm font-bold text-slate-900">+55 (62) 9639-0724</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Right Form Column */}
+            <div className="lg:col-span-7 bg-slate-50 border border-slate-100 p-8 lg:p-10 rounded-[2.5rem] shadow-sm">
+              <form onSubmit={handleContactSubmit} className="space-y-6">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                  {/* Nome */}
+                  <div className="space-y-2">
+                    <label className="block text-xs font-black uppercase tracking-widest text-slate-500">Nome</label>
+                    <div className="relative">
+                      <span className="absolute inset-y-0 left-0 pl-4 flex items-center text-slate-400">
+                        <User className="size-4" />
+                      </span>
+                      <input 
+                        type="text" 
+                        required
+                        placeholder="Seu nome completo"
+                        className="w-full pl-11 pr-4 py-3 bg-white border border-slate-200 rounded-2xl text-sm font-medium focus:outline-none focus:border-primary transition-colors"
+                        value={contactForm.name}
+                        onChange={(e) => setContactForm({ ...contactForm, name: e.target.value })}
+                      />
+                    </div>
+                  </div>
+
+                  {/* E-mail */}
+                  <div className="space-y-2">
+                    <label className="block text-xs font-black uppercase tracking-widest text-slate-500">E-mail</label>
+                    <div className="relative">
+                      <span className="absolute inset-y-0 left-0 pl-4 flex items-center text-slate-400">
+                        <Mail className="size-4" />
+                      </span>
+                      <input 
+                        type="email" 
+                        required
+                        placeholder="seu.email@exemplo.com"
+                        className="w-full pl-11 pr-4 py-3 bg-white border border-slate-200 rounded-2xl text-sm font-medium focus:outline-none focus:border-primary transition-colors"
+                        value={contactForm.email}
+                        onChange={(e) => setContactForm({ ...contactForm, email: e.target.value })}
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                  {/* Telefone */}
+                  <div className="space-y-2">
+                    <label className="block text-xs font-black uppercase tracking-widest text-slate-500">Telefone</label>
+                    <div className="relative">
+                      <span className="absolute inset-y-0 left-0 pl-4 flex items-center text-slate-400">
+                        <Phone className="size-4" />
+                      </span>
+                      <input 
+                        type="tel" 
+                        required
+                        placeholder="(00) 00000-0000"
+                        className="w-full pl-11 pr-4 py-3 bg-white border border-slate-200 rounded-2xl text-sm font-medium focus:outline-none focus:border-primary transition-colors"
+                        value={contactForm.phone}
+                        onChange={(e) => setContactForm({ ...contactForm, phone: e.target.value })}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Departamento */}
+                  <div className="space-y-2">
+                    <label className="block text-xs font-black uppercase tracking-widest text-slate-500">Departamento</label>
+                    <select 
+                      className="w-full px-4 py-3 bg-white border border-slate-200 rounded-2xl text-sm font-medium focus:outline-none focus:border-primary transition-colors appearance-none cursor-pointer"
+                      value={contactForm.department}
+                      onChange={(e) => setContactForm({ ...contactForm, department: e.target.value })}
+                    >
+                      <option value="Comercial">Comercial</option>
+                      <option value="Suporte Técnico">Suporte Técnico</option>
+                      <option value="Parcerias / Afiliados">Parcerias / Afiliados</option>
+                      <option value="Financeiro">Financeiro</option>
+                      <option value="Outro">Outro</option>
+                    </select>
+                  </div>
+                </div>
+
+                {/* Assunto */}
+                <div className="space-y-2">
+                  <label className="block text-xs font-black uppercase tracking-widest text-slate-500">Assunto</label>
+                  <input 
+                    type="text" 
+                    required
+                    placeholder="Assunto do contato"
+                    className="w-full px-4 py-3 bg-white border border-slate-200 rounded-2xl text-sm font-medium focus:outline-none focus:border-primary transition-colors"
+                    value={contactForm.subject}
+                    onChange={(e) => setContactForm({ ...contactForm, subject: e.target.value })}
+                  />
+                </div>
+
+                {/* Mensagem */}
+                <div className="space-y-2">
+                  <label className="block text-xs font-black uppercase tracking-widest text-slate-500">Mensagem</label>
+                  <div className="relative">
+                    <span className="absolute top-3 left-0 pl-4 text-slate-400">
+                      <MessageSquare className="size-4" />
+                    </span>
+                    <textarea 
+                      required
+                      rows={4}
+                      placeholder="Escreva sua mensagem aqui..."
+                      className="w-full pl-11 pr-4 py-3 bg-white border border-slate-200 rounded-2xl text-sm font-medium focus:outline-none focus:border-primary transition-colors resize-none"
+                      value={contactForm.message}
+                      onChange={(e) => setContactForm({ ...contactForm, message: e.target.value })}
+                    />
+                  </div>
+                </div>
+
+                {/* Submit Button */}
+                <button
+                  type="submit"
+                  disabled={submittingContact}
+                  className="w-full bg-primary text-white py-4 rounded-2xl font-black uppercase tracking-widest text-xs hover:brightness-110 active:scale-[0.98] transition-all disabled:opacity-50 flex items-center justify-center gap-2 shadow-lg shadow-primary/20 cursor-pointer"
+                >
+                  {submittingContact ? (
+                    <div className="size-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                  ) : (
+                    <>
+                      Entrar em contato <Send className="size-4" />
+                    </>
+                  )}
+                </button>
+              </form>
+            </div>
+
           </div>
         </div>
       </section>

@@ -15,6 +15,7 @@ export default function Navbar() {
   const navLinks = [
     { label: 'Loja', path: '/shop' },
     { label: 'Purificadores', path: '/shop?category=Purificadores' },
+    { label: 'Sobre Nós', path: '/sobre-nos' },
     { label: 'Rastreie seu pedido', path: 'https://rastreamento.correios.com.br/app/index.php', external: true },
     { label: 'Afiliados', path: '/affiliate' },
   ];

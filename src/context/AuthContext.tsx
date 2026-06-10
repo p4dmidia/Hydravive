@@ -12,6 +12,12 @@ interface UserProfile {
   pix_key?: string;
   pix_type?: string;
   referral_code?: string;
+  cep?: string;
+  address?: string;
+  city?: string;
+  state?: string;
+  number?: string;
+  complement?: string;
 }
 
 interface AuthContextType {

@@ -34,6 +34,12 @@ import AdminProductMMN from './pages/admin/AdminProductMMN';
 import Shop from './pages/Shop';
 import Cart from './pages/Cart';
 import ProductDetail from './pages/ProductDetail';
+import AboutUs from './pages/AboutUs';
+import PrivacyPolicy from './pages/PrivacyPolicy';
+import DeliveryPolicy from './pages/DeliveryPolicy';
+import ReturnsExchanges from './pages/ReturnsExchanges';
+import PaymentMethods from './pages/PaymentMethods';
+
 
 // Componente de Proteção Admin
 const AdminRoute = ({ children }: { children: React.ReactNode }) => {
@@ -115,6 +121,11 @@ function AppContent() {
           <Route path="/cart" element={<Cart />} />
           <Route path="/checkout" element={<Checkout />} />
           <Route path="/affiliate" element={<AffiliateLanding />} />
+          <Route path="/sobre-nos" element={<AboutUs />} />
+          <Route path="/politica-de-privacidade" element={<PrivacyPolicy />} />
+          <Route path="/politica-de-entrega" element={<DeliveryPolicy />} />
+          <Route path="/trocas-e-devolucoes" element={<ReturnsExchanges />} />
+          <Route path="/formas-de-pagamento" element={<PaymentMethods />} />
           <Route path="/shop" element={<Shop />} />
           <Route path="/product/:id" element={<ProductDetail />} />
           <Route path="/my-orders" element={<ProtectedRoute><MyOrders /></ProtectedRoute>} />

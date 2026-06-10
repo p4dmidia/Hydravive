@@ -19,6 +19,13 @@ CREATE TABLE IF NOT EXISTS public.user_profiles (
     phone text,
     cpf text UNIQUE,
     pix_key text,
+    pix_type text,
+    cep text,
+    address text,
+    city text,
+    state text,
+    number text,
+    complement text,
     sponsor_id bigint REFERENCES public.user_profiles(id), -- Patrocinador (Para MMN)
     created_at timestamptz DEFAULT now(),
     updated_at timestamptz DEFAULT now()
