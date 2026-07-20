@@ -12,7 +12,7 @@ serve(async (req) => {
   }
 
   try {
-    const { items, order_id, customer, redirect_url } = await req.json()
+    const { items, order_id, customer, redirect_url, max_installments } = await req.json()
 
     if (!items || !order_id) {
       throw new Error('Items and order_id are required')
@@ -24,7 +24,7 @@ serve(async (req) => {
       description: item.name || item.description || 'Produto'
     }))
 
-    const payload = {
+    const payload: any = {
       handle: "rafaella-bueno-830",
       items: formattedItems,
       order_nsu: String(order_id),
@@ -34,6 +34,10 @@ serve(async (req) => {
         email: customer.email,
         phone_number: customer.phone
       } : undefined
+    }
+
+    if (max_installments && max_installments > 0) {
+      payload.max_installments = max_installments;
     }
 
     const response = await fetch('https://api.checkout.infinitepay.io/links', {

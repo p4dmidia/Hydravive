@@ -140,10 +140,18 @@ export default function CheckoutPage() {
         });
       }
 
+      // Calcular parcelamento máximo sem juros do carrinho (regra do menor limite entre os produtos)
+      const cartMaxInstallments = cart.reduce((min, item) => {
+        const itemMax = item.max_installments ?? 0;
+        if (itemMax === 0) return 0;
+        return min === 0 ? itemMax : Math.min(min, itemMax);
+      }, 0);
+
       const { data: paymentData, error: paymentError } = await supabase.functions.invoke('infinitepay-checkout', {
         body: {
           items: paymentItems,
           order_id: order.id,
+          max_installments: cartMaxInstallments,
           customer: {
             name: formData.fullName,
             email: formData.email,

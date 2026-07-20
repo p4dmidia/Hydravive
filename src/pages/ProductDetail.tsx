@@ -20,6 +20,7 @@ import toast from 'react-hot-toast';
 
 import { useCart } from '../context/CartContext';
 import { useAuth } from '../context/AuthContext';
+import { getInstallmentText } from '../utils/installment';
 
 interface Product {
   id: number;
@@ -38,6 +39,7 @@ interface Product {
   height: number;
   length: number;
   rating: number;
+  max_installments?: number;
 }
 
 interface ProductImage {
@@ -246,26 +248,47 @@ export default function ProductDetail() {
               </h1>
               
               {(isUserApproved || isAffiliation || hasReferral) ? (
-                profile?.role === 'affiliate' && profile?.is_active === true && product.affiliate_price > 0 ? (
-                  <div className="mt-6 flex flex-col gap-0.5">
-                    <p className="text-sm font-bold text-slate-400 line-through">
-                      R$ {Number(product.price).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                    </p>
-                    <p className="text-4xl font-black text-emerald-500 flex items-center gap-3">
-                      R$ {Number(product.affiliate_price).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                      <span className="text-xs bg-emerald-500/10 text-emerald-600 px-3 py-1 rounded-lg uppercase tracking-wider font-black">VIP</span>
-                    </p>
-                  </div>
-                ) : (
-                  <div className="mt-6 flex items-baseline gap-4">
-                    <span className="text-4xl font-black text-slate-900">
-                      R$ {Number(product.price).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                    </span>
-                    <span className="text-slate-400 font-bold text-sm line-through">
-                      R$ {(Number(product.price) * 1.2).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                    </span>
-                  </div>
-                )
+                <div>
+                  {profile?.role === 'affiliate' && profile?.is_active === true && product.affiliate_price > 0 ? (
+                    <div className="mt-6 flex flex-col gap-0.5">
+                      <p className="text-sm font-bold text-slate-400 line-through">
+                        R$ {Number(product.price).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                      </p>
+                      <p className="text-4xl font-black text-emerald-500 flex items-center gap-3">
+                        R$ {Number(product.affiliate_price).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                        <span className="text-xs bg-emerald-500/10 text-emerald-600 px-3 py-1 rounded-lg uppercase tracking-wider font-black">VIP</span>
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="mt-6 flex items-baseline gap-4">
+                      <span className="text-4xl font-black text-slate-900">
+                        R$ {Number(product.price).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                      </span>
+                      <span className="text-slate-400 font-bold text-sm line-through">
+                        R$ {(Number(product.price) * 1.2).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                      </span>
+                    </div>
+                  )}
+
+                  {getInstallmentText(
+                    profile?.role === 'affiliate' && profile?.is_active === true && product.affiliate_price > 0
+                      ? product.affiliate_price
+                      : product.price,
+                    product.max_installments
+                  ) && (
+                    <div className="mt-2 inline-flex items-center gap-2 bg-emerald-50 text-emerald-700 px-4 py-2 rounded-2xl border border-emerald-100 font-bold text-sm">
+                      <span>⚡</span>
+                      <span>
+                        {getInstallmentText(
+                          profile?.role === 'affiliate' && profile?.is_active === true && product.affiliate_price > 0
+                            ? product.affiliate_price
+                            : product.price,
+                          product.max_installments
+                        )}
+                      </span>
+                    </div>
+                  )}
+                </div>
               ) : (
                 <div className="mt-6">
                   <span className="text-2xl font-black text-slate-400 uppercase tracking-widest">

@@ -14,6 +14,7 @@ interface CartItem {
   width?: number;
   height?: number;
   length?: number;
+  max_installments?: number;
 }
 
 interface CartContextType {

@@ -13,6 +13,7 @@ export interface Product {
   tags: string[];
   description: string;
   features: string[];
+  max_installments?: number;
 }
 
 export const PRODUCTS: Product[] = [

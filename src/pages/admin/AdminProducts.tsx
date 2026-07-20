@@ -35,6 +35,7 @@ interface Product {
   length: number;
   affiliate_price: number;
   points: number;
+  max_installments?: number;
 }
 
 interface ProductImage {
@@ -65,6 +66,10 @@ export default function AdminProducts() {
 
   // Gallery State
   const [galleryImages, setGalleryImages] = useState<string[]>([]);
+
+  // Installments State
+  const [hasInstallments, setHasInstallments] = useState(false);
+  const [maxInstallments, setMaxInstallments] = useState('3');
 
   // Form State
   const [formData, setFormData] = useState({
@@ -117,6 +122,8 @@ export default function AdminProducts() {
   const handleOpenModal = async (product: Product | null = null) => {
     if (product) {
       setEditingProduct(product);
+      setHasInstallments(Boolean(product.max_installments && product.max_installments > 1));
+      setMaxInstallments(product.max_installments && product.max_installments > 1 ? String(product.max_installments) : '3');
       setFormData({
         name: product.name,
         description: product.description || '',
@@ -143,6 +150,8 @@ export default function AdminProducts() {
     } else {
       setEditingProduct(null);
       setGalleryImages([]);
+      setHasInstallments(false);
+      setMaxInstallments('3');
       setFormData({
         name: '', description: '', price: '', category_id: '', subcategory_id: '',
         main_image_url: '', stock_quantity: '0', weight: '0', width: '0', height: '0', length: '0',
@@ -202,7 +211,8 @@ export default function AdminProducts() {
         height: parseFloat(formData.height),
         length: parseFloat(formData.length),
         affiliate_price: parseFloat(formData.affiliate_price),
-        points: parseInt(formData.points)
+        points: parseInt(formData.points),
+        max_installments: hasInstallments ? parseInt(maxInstallments) : 0
       };
 
       let productId = editingProduct?.id;
@@ -308,6 +318,15 @@ export default function AdminProducts() {
               <p className="text-xl font-black text-primary mt-4">
                 R$ {Number(product.price).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
               </p>
+              {product.max_installments && product.max_installments > 1 ? (
+                <p className="text-[11px] font-extrabold text-emerald-400 mt-1">
+                  ou em até {product.max_installments}x de R$ {(product.price / product.max_installments).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} sem juros
+                </p>
+              ) : (
+                <p className="text-[10px] font-bold text-slate-500 mt-1">
+                  Sem parcelamento sem juros
+                </p>
+              )}
             </div>
           ))}
         </div>
@@ -347,6 +366,42 @@ export default function AdminProducts() {
                         <div>
                           <label className="text-[10px] font-black text-amber-500 uppercase tracking-widest ml-1">Pontos Gerados</label>
                           <input required type="number" value={formData.points} onChange={(e) => setFormData({ ...formData, points: e.target.value })} className="w-full bg-[#0F172A] border border-amber-500/20 rounded-2xl px-6 py-4 text-amber-500 font-bold outline-none focus:ring-2 focus:ring-amber-500/20 transition-all" />
+                        </div>
+
+                        {/* Parcelamento Sem Juros */}
+                        <div className="pt-4 border-t border-white/5 space-y-3">
+                          <label className="flex items-center gap-3 cursor-pointer select-none">
+                            <input 
+                              type="checkbox" 
+                              checked={hasInstallments} 
+                              onChange={(e) => setHasInstallments(e.target.checked)}
+                              className="size-5 rounded border-white/10 bg-[#0F172A] text-primary focus:ring-primary focus:ring-offset-[#1E293B]"
+                            />
+                            <span className="text-xs font-bold text-white uppercase tracking-wider">
+                              Oferecer parcelamento sem juros
+                            </span>
+                          </label>
+
+                          {hasInstallments && (
+                            <div className="space-y-1">
+                              <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">
+                                Máximo de parcelas sem juros (2x até 8x)
+                              </label>
+                              <select 
+                                value={maxInstallments} 
+                                onChange={(e) => setMaxInstallments(e.target.value)}
+                                className="w-full bg-[#0F172A] border border-white/5 rounded-2xl px-6 py-4 text-white font-bold outline-none focus:ring-2 focus:ring-primary/20 transition-all"
+                              >
+                                <option value="2">Até 2x sem juros</option>
+                                <option value="3">Até 3x sem juros</option>
+                                <option value="4">Até 4x sem juros</option>
+                                <option value="5">Até 5x sem juros</option>
+                                <option value="6">Até 6x sem juros</option>
+                                <option value="7">Até 7x sem juros</option>
+                                <option value="8">Até 8x sem juros</option>
+                              </select>
+                            </div>
+                          )}
                         </div>
                       </div>
                     </section>

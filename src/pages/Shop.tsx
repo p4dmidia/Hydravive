@@ -20,6 +20,7 @@ import toast from 'react-hot-toast';
 
 import { useCart } from '../context/CartContext';
 import { useAuth } from '../context/AuthContext';
+import { getInstallmentText } from '../utils/installment';
 
 interface Product {
   id: number;
@@ -35,6 +36,7 @@ interface Product {
   rating: number;
   tags: string[];
   stock_quantity: number;
+  max_installments?: number;
 }
 
 interface Category {
@@ -309,6 +311,21 @@ export default function Shop() {
                                 ) : (
                                   <p className="text-2xl font-black text-slate-900">
                                     R$ {Number(product.price).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                                  </p>
+                                )}
+                                {getInstallmentText(
+                                  profile?.role === 'affiliate' && profile?.is_active === true && product.affiliate_price > 0
+                                    ? product.affiliate_price
+                                    : product.price,
+                                  product.max_installments
+                                ) && (
+                                  <p className="text-[10px] font-extrabold text-emerald-600 mt-0.5">
+                                    {getInstallmentText(
+                                      profile?.role === 'affiliate' && profile?.is_active === true && product.affiliate_price > 0
+                                        ? product.affiliate_price
+                                        : product.price,
+                                      product.max_installments
+                                    )}
                                   </p>
                                 )}
                               </div>
