@@ -40,8 +40,7 @@ export default function CheckoutPage() {
 
   const subtotal = totalPrice;
   const shippingCost = selectedShipping ? Number(selectedShipping.custom_price) : 0;
-  const taxes = Math.round(subtotal * 0.08 * 100) / 100;
-  const finalTotal = Math.round((subtotal + shippingCost + taxes) * 100) / 100;
+  const finalTotal = Math.round((subtotal + shippingCost) * 100) / 100;
 
   useEffect(() => {
     const cleanCep = cep.replace(/\D/g, '');
@@ -138,14 +137,6 @@ export default function CheckoutPage() {
           name: `Frete (${selectedShipping.name})`,
           quantity: 1,
           price: shippingCost
-        });
-      }
-
-      if (taxes > 0) {
-        paymentItems.push({
-          name: 'Impostos e Taxas',
-          quantity: 1,
-          price: taxes
         });
       }
 
@@ -424,10 +415,6 @@ export default function CheckoutPage() {
                     <span className={shippingCost === 0 ? "text-green-500 font-bold uppercase text-[10px] tracking-widest" : "font-medium"}>
                       {shippingCost === 0 ? 'Grátis' : `R$ ${shippingCost.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`}
                     </span>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-slate-500">Impostos estim.</span>
-                    <span className="font-medium">R$ {taxes.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span>
                   </div>
                   <hr className="border-slate-100 my-2" />
                   <div className="flex justify-between items-end">
